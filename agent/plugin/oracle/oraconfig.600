@@ -1,0 +1,61 @@
+#!/usr/bin/perl
+use strict;
+use Env;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+$LANG='C';
+
+my $app = 'oraconfig';
+dupProcess($file);
+if(hasService('oracle') == 0){
+        print "has no oracle service\n";
+        exit 1;
+}
+my $user = loginUser();
+if($user !~ /ora/){
+        print "is not oracle user\n";
+        exit 0;
+}
+
+my $sql = "SELECT 'TD',upper(f.tablespace_name) tablespacename,d.Tot_grootte_Mb sizeM,
+        d.Tot_grootte_Mb-f.total_bytes used_space,
+round((d.Tot_grootte_Mb-f.total_bytes)/d.Tot_grootte_Mb*100,2) used_ratio,
+        f.total_bytes freedspaceM,f.max_bytes maxblockM
+FROM 
+(SELECT tablespace_name,round(SUM(bytes)/(1024*1024),2) total_bytes,round(MAX(bytes)/(1024*1024),2) max_bytes 
+FROM sys.dba_free_space GROUP BY tablespace_name) f,
+(SELECT dd.tablespace_name, round(SUM(dd.bytes)/(1024*1024),2) Tot_grootte_Mb FROM sys.dba_data_files dd
+GROUP BY dd.tablespace_name) d
+WHERE d.tablespace_name = f.tablespace_name ORDER BY 4 DESC;";
+my @lines = execSQL($sql);
+my @perf = ();
+foreach my $line (@lines){
+        next if($line !~ /TD/);
+	next if($line =~ /NAME|SQL/);
+        chomp($line);
+        my (@tokens) = split /[\t ]+/,$line;
+        my ($tsname,$ratio,$free) = ($tokens[1],$tokens[4],$tokens[5]);
+        unshift(@perf,[$app,"ts_ratio",$tsname,$ratio]);
+        unshift(@perf,[$app,"ts_free",$tsname,$free]);
+}
+
+$sql = "select 'TD',count(*) from dba_indexes where status='UNUSABLE';";
+@lines = execSQL($sql);
+foreach my $line (@lines){
+        next if($line !~ /TD/);
+        next if($line =~ /COUNT|SQL/);
+        chomp($line);
+        my (@tokens) = split /[\t ]+/,$line;
+        unshift(@perf,[$app,"ind_fails",'-',$tokens[1]]);
+}
+my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+writeArray($file,\@perf);
+my $dstDir = "$path/../../../run/queue/current/";
+`cp  $file $dstDir`;
+
+
+`echo $$ > $path/../../../run/tmp/$app.pid`;
+print "oraconfig is over\n";

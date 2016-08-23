@@ -1,0 +1,74 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/command.pl";
+
+$ENV{'LC_ALL'} = 'C';
+my $app = "disk";
+dupProcess($file);
+my @res = diskplugin();
+if(scalar @res >0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+sub diskplugin{
+	my @outs = dfiParse(mycmds('dfi'));
+        my $file = "$path/../../../run/data/perf/diski.".curtime().".dat";
+        writeArray($file,\@outs);
+        my $dstfile = "$path/../../../run/queue/current/";
+	`cp $file $dstfile`;
+	@outs = dfkParse(mycmds('dfk'));
+        $file = "$path/../../../run/data/perf/disk.".curtime().".dat";
+        writeArray($file,\@outs);
+        $dstfile = "$path/../../../run/queue/current/";
+	`cp $file $dstfile`;
+	return @outs;
+}
+
+sub dfkParse{
+	my (@outs) = @_;
+        shift @outs;
+        my @perf = ();
+        foreach my $line (@outs){
+               chomp($line);
+                $line=~s/^\s*|\s*$//g;
+                my @tokens = split(/ +/,$line);
+                if($tokens[5] =~ /%/){
+                        chop($tokens[5]);
+                }       
+                my $util = $tokens[5];
+                my $disk = $tokens[0];
+		next if($disk =~ /\/cdrom/);
+                my $free = int($tokens[4]/1024*10)/10;
+                push(@perf,[$app,'util',$disk,$util]);
+                push(@perf,[$app,'free',$disk,$free]);
+        }
+        return @perf;
+}
+
+
+sub dfiParse{
+        my (@outs) = @_;
+        shift @outs;
+        my @perf = ();
+        foreach my $line (@outs){
+                chomp($line);
+                $line=~s/^\s*|\s*$//g;
+                my @tokens = split(/[\t ]+/,$line);
+                if($tokens[5] =~ /%/){
+                        chop($tokens[5]);
+                }
+                my $util = $tokens[5];
+                my $disk = $tokens[0];
+		next if($disk =~ /\/cdrom/);
+                my $free = $tokens[4];
+               push(@perf,[$app,'iutil',$disk,$util]);
+                push(@perf,[$app,'ifree',$disk,$free]);
+     }  
+	return @perf;
+}
+1;

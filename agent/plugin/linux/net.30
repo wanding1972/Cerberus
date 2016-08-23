@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/command.pl";
+
+$ENV{'LC_ALL'} = 'C';
+my $app = "net";
+dupProcess($file);
+my @res = netplugin();
+if(scalar @res >0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+sub netparse{
+	my (@out) = @_;
+	shift(@out);
+	shift(@out);
+	my %newHash = ();
+	foreach my $line (@out) {
+       		$line = trim($line);
+        	my @tokens = split /[ \t]+/, $line;
+       		next if($line =~ /^$/ || $tokens[0]=~ /^lo/|| $tokens[0] =~ /.\.\d/ || $tokens[0] =~ /.:\d/);
+		$newHash{"$app-rx-$tokens[0]"} = $tokens[3];
+		$newHash{"$app-tx-$tokens[0]"} = $tokens[7];
+	}
+	return %newHash;
+}
+sub netplugin{
+	my $cmd = "netstat -in";
+	my @out = `$cmd`;
+	my %oldHash = netparse(@out);
+	sleep(3);
+	@out = `$cmd`;
+	my %newHash = netparse(@out);
+	my @data=();
+        foreach my $key (keys %oldHash){ 
+		my @tokens = split /-/,$key;
+		my $value = int(($newHash{$key}-$oldHash{$key})/3); 
+		push(@tokens,$value);
+		unshift(@data,\@tokens);
+        }
+        my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+        writeArray($file,\@data);
+        my $dstfile = "$path/../../../run/queue/current/";
+	`cp $file $dstfile`;
+	return @data;
+}
+1;

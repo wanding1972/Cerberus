@@ -1,0 +1,31 @@
+our @discards = (
+	#"alarmtype,fac",
+	'PAGEOUT',
+	'snapshot.pl',
+	'cpu idle < 2%',
+	'disk.free,/boot',
+	'/xenstored',
+	'/proc',
+	'/devperf',
+	'/htdocs.tar.gz',
+	'/media',
+	'/global'
+	);
+our %triggers = (
+	#alarmType,times
+	"disk_free_lessthan_500M" => 2 ,
+	"serviceFault" => 2,
+    	'net_in_exceed_1M' => 1,
+	'swap_ratio_exceed_60%' => 2,
+	'index_failes'	=>1,
+	'oracleSessionExceed' => 2
+	);
+our %cleans = (
+	#alarmType,ela
+	"disk_free_lessthan_500M" =>  2400
+	);
+
+our %mails = (
+	'ALL' => 'foo2322@gmail.com',
+	);
+

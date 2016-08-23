@@ -1,0 +1,55 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/command.pl";
+
+
+$ENV{'LC_ALL'} = 'C';
+my $app = 'dskio';
+dupProcess($file);
+my @res=ioplugin();
+if($#res >0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+
+sub ioplugin{
+	my @data= ioparse(mycmds('iostat'));
+        my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+        writeArray($file,\@data);
+        my $dstfile = "$path/../../../run/queue/current/";
+	`cp $file $dstfile`;
+	return @data;
+}
+
+
+sub ioparse{
+	my(@lines) = @_;
+	shift(@lines);
+	my $start=$#lines/2;
+	my @perf = ();
+	for(my $i=$start;$i<$#lines;$i++){
+		my $line = trim($lines[$i]);
+		next if($line =~/^$|Device/);
+		my @tokens = split / +/,$line;
+		if($#tokens>12){
+#Device:    rrqm/s wrqm/s   r/s   w/s  rsec/s  wsec/s    rkB/s    wkB/s avgrq-sz avgqu-sz   await  svctm  %util
+#sda          0.00  10.00  0.00 10.33    0.00  162.67     0.00    81.33    15.74     0.00    0.03   0.03   0.03
+			push(@perf,[$app,'util',$tokens[0],$tokens[13]]);
+		}else{
+#Device:         rrqm/s   wrqm/s   r/s   w/s   rsec/s   wsec/s avgrq-sz avgqu-sz   await  svctm  %util
+#cciss/c0d0        0.00   359.00  0.00 133.00     0.00  5042.67    37.91    21.29  209.84   2.55  33.97
+			push(@perf,[$app,'util',$tokens[0],$tokens[11]]);
+		}
+			push(@perf,[$app,'r/s',$tokens[0],$tokens[3]]);
+			push(@perf,[$app,'w/s',$tokens[0],$tokens[4]]);
+	}
+	return @perf;	
+}
+
+
+1

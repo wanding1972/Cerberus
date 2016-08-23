@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+##################################################################################
+#  Copyright (c) 2016 Wan Ding.                                                  #
+#  All rights reserved.                                                          #
+#  THIS SOFTWARE IS ADOPTED THE BSD LICENSE.                                     #
+#  Project: github.com/wanding1972/Cerberus                                      #
+##################################################################################
+
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+require "$path/../conf/global.conf";
+require "$path/../lib/funcs.pl";
+require "$path/../conf/trigger.rule";
+dupProcess($file);
+
+my %hashCount = ();
+my %hashAvg = ();
+my %hashMax = ();
+my %hashMin = ();
+my %hashSum = ();
+
+my $timestamp = curtime();
+my $dirData = "$path/../../run/queue/perf";
+my $perfFile = "$dirData/perf.".$timestamp.".dat";
+sumfilter();
+`echo $$ > $path/../../run/tmp/sumfilter.pid`;
+
+sub sumfilter{
+	my $topic = "$path/../../run/queue/1";
+	opendir(DIR,$topic);
+	my @files = readdir(DIR);
+	closedir(DIR);
+	foreach my $file (@files) {
+       		next if($file eq '..' ||  $file eq '.' );
+	        my $path = "$topic/$file";
+	        next if( -l $path);   #skip softLink 
+		doFile($path);
+	}
+	my @keys = keys(%hashAvg);
+	if($#keys >=0){
+	   if(open(FILE,">$perfFile")){
+		foreach my $key (keys %hashAvg){
+       			print FILE "$timestamp,$key,$hashAvg{$key},$hashMin{$key},$hashMax{$key}\n";
+		}
+        	close(FILE);
+	   }
+	   `cp $perfFile $path/../../run/queue/2/`;
+	}
+	#clean files been processed
+	foreach my $file(@files){
+       		next if($file eq '..' ||  $file eq '.' );
+	        my $pathin = "$topic/$file";
+	        next if( -l $pathin);    #skip softLink 
+		unlink($pathin);
+	}
+}
+
+sub doFile{
+	my ($file) = @_;
+	return if(!open(FILE,$file));
+	my @lines = <FILE>;
+	foreach my $line (@lines){
+		chomp($line);
+		my (@tokens) = split /,/,$line;
+		my $key = "$tokens[0],$tokens[1],$tokens[2]";
+		my $value = $tokens[3];
+		if(exists($hashCount{$key})){
+                        $hashCount{$key} = $hashCount{$key}+1;
+                        $hashSum{$key} = $hashSum{$key}+$value;
+                        $hashMax{$key} = $value>$hashMax{$key}?$value:$hashMax{$key};
+                        $hashMin{$key} = $value<$hashMin{$key}?$value:$hashMin{$key};
+			$hashAvg{$key} = int($hashSum{$key}/$hashCount{$key}*10)/10;
+		}else{
+			$hashCount{$key} = 1;
+			$hashSum{$key} = $value;
+			$hashMax{$key} = $value;
+			$hashMin{$key} = $value;
+			$hashAvg{$key} = $value;
+		}
+	}
+	close(FILE);
+}
+
+1;

@@ -1,0 +1,50 @@
+our %serviceDef = ( 
+	'alarm' => '/zhangsan/nms/sh/failure.sh'
+);
+our %service=(
+#	'sample'=>{
+#		'ps_count' => ['alarmcenter','<1'], 个数    进程数量
+#		'proc_timeout' => ['FmtFlux.pl','>60'],                     分钟
+#		'file_mtime' => ['/zhangsan/resin/log/failure.log','>30'], 分钟   文件更新时间, 文件名是不完全匹配
+#		'file_size'  => ['/zhangsan/backup/{WEEK-2}/{YYYYMMDD-2}/zhangsan_config.{YYYYMM-0}','>5000000000'],    字节,0是星期日
+#		'file_content' => ['/oracle/admin/dbnms/alert_dbnms.log','ORA-|error'],
+#		'dir_file'  => ['/zhangsan/nms/data/alarm/flux','>120'],      分钟
+#		'tcp_connect' => ['127.0.0.1','2003'],
+#		'exec_cmd'    => ['/oracle/test.sh status','online'],
+#		'cron_1'      => ['root','watchdog'],
+#		'http_connect' => ['127.0.0.1:2003/caucho-status','200 OK']
+#	},
+	'alarm'  => {
+		  'ps_count' => ['troublemonitor','<1'],
+		  'dir_file' => ['/zhangsan/nms/data/alarm/flux','>30'],
+		  'dir_file_2' => ['/zhangsan/nms/data/alarm/devperf','>30'],
+		  'cron_1'  =>['zhangsan','watchdog']
+		},
+	'syslog' => {
+		 'ps_count' => ['syslog-ng','<1'],
+		 'file_mtime' => ["/zhangsan/nms/data/userlog/{PRSID}/local2-log",'>10'],
+		 'ps_count_1' => ['GetSyslog.pl','<1'],
+		 'file_mtime_1' => ["/zhangsan/nms/cfg/dat/syslog.local2.BP",'>1']
+		},
+	'collector' => {
+		'ps_count' => ['collector','<1'],
+		'file_mtime' => ["/zhangsan/nms/logs/DC/collector.log",">60"]
+		},
+	'app' => {
+		  'ps_count' => ['Scheduler','<1'],
+		  'file_mtime' => ['/zhangsan/resin/log/failure{YYYYMMDD}.log','>15'],
+		  'ps_count_1' => ['controller','<1'],
+		  'file_mtime_1' => ['/zhangsan/nms/logs/DC/controller.log','>60'],
+		  'ps_count_2' => ['AlarmTCPServer','<11'],
+		  'ps_count_3' => ['AlarmTransmit','<1']
+		},
+	'ldbbak'  => {
+		 'file_mtime'=> ['/lbackup/db/{YYYYMMDD-1}.tar.gz','>1440'],
+		 'file_size' => ['/lbackup/db/{YYYYMMDD-1}.tar.gz','<10000000']
+	},
+	'lappbak' => {
+		 'file_mtime'=> ['/lbackup/app/{WEEK-1}/htdocs.tar.gz','>100080'],
+		 'file_size' => ['/lbackup/app/{WEEK-1}/htdocs.tar.gz','<10000000']
+	}
+);
+

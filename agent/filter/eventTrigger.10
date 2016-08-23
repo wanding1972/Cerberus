@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+##################################################################################
+#  Copyright (c) 2016 Wan Ding.                                                  #
+#  All rights reserved.                                                          #
+#  THIS SOFTWARE IS ADOPTED THE BSD LICENSE.                                     #
+#  Project: github.com/wanding1972/Cerberus                                      #
+##################################################################################
+use strict;
+use File::Spec;
+use Env;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+require "$path/../conf/trigger.rule";
+require "$path/../conf/global.conf";
+require "$path/../lib/funcs.pl";
+dupProcess($file);
+
+my @eventLst = ();
+my $dirData = "$path/../../run/queue/event";
+my $eventFile = "$dirData/eventAuto.".curtime().".dat";
+eventTrigger();
+`echo $$ > $path/../../run/tmp/eventTrigger.pid`;
+
+
+sub eventTrigger{
+	my $topic = "$path/../../run/queue/evt1";
+	opendir(DIR,$topic);
+	my @files = readdir(DIR);
+	closedir(DIR);
+	foreach my $file (@files) {
+       		next if($file eq '..' ||  $file eq '.' );
+	        my $path = "$topic/$file";
+	        next if( -l $path);
+		doFile($path);
+	}
+	if($#eventLst >=0){
+	if(open(FILE,">$eventFile")){
+       		 foreach my $item (@eventLst){
+               		 print FILE  "$item\n";
+        	}
+	        close(FILE);
+	}
+	}
+	foreach my $file (@files) {
+                next if($file eq '..' ||  $file eq '.' );
+                my $pathin = "$topic/$file";
+                next if( -l $pathin);
+		`mv $pathin $dirData/`;
+        }
+}
+
+sub doFile{
+	my ($file) = @_;
+	return if(!open(FILE,$file));
+	my @lines = <FILE>;
+	foreach my $line (@lines){
+		chomp($line);
+		my ($alarmType,$appindex,$fac,$summary) = split /,/,$line;
+		my $key = "$alarmType.$fac";
+		if(exists($para::autoActions{$key})){
+			my $cmd = $para::autoActions{$key};
+			my $out = `$cmd`;
+			if( $? == 0){
+				push(@eventLst,"$alarmType,eventTrigger.restart,$fac,$cmd");
+			}
+		}
+	}
+	close(FILE);
+}
+
+1;

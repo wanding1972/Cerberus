@@ -1,0 +1,151 @@
+#!/usr/bin/perl
+use strict; 
+use Env;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+my $home = "$path/../../..";
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+$ENV{'LC_ALL'} = 'C';
+$| = 1;
+my $baseFile = "$home/run/cfg/index.base";
+my $oldFile  = "$home/run/cfg/index.old";
+my $curFile  = "$home/run/cfg/index.cur";
+if(! -e $baseFile){
+	snapApp($baseFile);
+}else{
+	if(! -e $oldFile){
+		`cp $baseFile $oldFile`;
+	}
+	snapApp($curFile);
+	my %oldHash = readHash($oldFile);
+	my %newHash = readHash($curFile);
+	my %diffHash = diffHash_file(\%oldHash,\%newHash);
+        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =localtime(time-24*3600);
+        my $tag = sprintf("%04d%02d%02d",$year+1900,$mon+1,$mday);
+	my $hisFile = "$home/run/log/hisFile.log";
+        my $hisFileOld = "$home/run/log/hisFile.$tag.log";
+        if( ! -e $hisFileOld && -e $hisFile){
+              `mv $hisFile  $hisFileOld`;
+        }
+	my @keys = keys %diffHash;
+	my $count = scalar @keys;
+	if($count >0){
+		if(open(FILE2,">>$hisFile")){
+			foreach my $key (@keys){
+				my $action = $diffHash{$key};
+				my $mtime = digestFile($key);
+				print FILE2 "$mtime,$key,$diffHash{$key}\n";
+			}
+			close(FILE2);
+		}
+		`mv $curFile $oldFile`;
+	}
+}
+print "scan over \n";
+
+sub diffHash_file{
+	my ($srcMap,$dstMap)=@_;
+	my %results = ();
+	my $count = 0; 
+	foreach my $key (keys(%$dstMap)){
+		if (!exists($$srcMap{$key})){
+				$results{$key} = 'add';
+		}else{
+			if($$srcMap{$key} eq $$dstMap{$key}){
+				$count++;
+			}else{	
+				$results{$key} = 'mod';
+			}
+		}
+	}
+	return %results;
+}
+
+sub snapApp(){
+	my ($indexFile) = @_;
+	my @toDoList = ('/usr/bin','/usr/sbin','/usr/lib','/usr/lib64','/bin','/sbin','/lib','/lib64','/etc');
+	my %dirDone ;
+	my %hashFile;
+	my ($dir,$path);
+	my $num = 0;
+	while (scalar @toDoList > 0) {
+		$dir = shift(@toDoList);
+		$dirDone{$dir} = 1;
+		if( ! -d $dir){
+			$path = $dir;
+			$hashFile{$path} = digestFile($path);
+			$num++;
+			next;
+		}
+		opendir(DIR,$dir);
+		my @files = readdir(DIR);
+		closedir(DIR);
+		foreach my $file (@files) {
+			if($file ne '..'&& $file ne '.' ){
+				$path = "$dir/$file";
+				next if( -l $path);	
+				if( -d $path){
+					if(! exists $dirDone{$path} ){
+							unshift(@toDoList,$path);
+					}
+				}else{
+					$hashFile{$path} = digestFile($path);
+					$num++;
+					if($num %50 ==0){print ".";}
+					if($num %5000 == 0){print "\n";}
+				}
+			}	#end if
+		}	#end foreach
+	}	#end while
+	writeHash(\%hashFile,$indexFile);
+}
+
+
+
+# difference of new old version
+sub exportDiffApp{
+	my $home = "$path/../..";
+	info("exportDiffApp");
+	my ($bp,$isBase) = @_;
+	my $newFile = "$home/data/snap/new/app/app.index";
+	my %newHash = readHash($newFile);
+	my $num = 0;
+	my $oldFile = "$home/data/snap/old/app/app.index";
+	if( $isBase eq '1'){
+		$oldFile = "$home/data/snap/base/app/app.index";
+	}
+	elsif($isBase eq '2'){
+	    %newHash = ();
+	    $newFile = "$home/data/snap/tmp/app/app.index";
+	    %newHash = readHash($newFile);
+	    $oldFile = "$home/data/snap/new/app/app.index";
+	}
+	my $base = "$home/data/diff/$bp/app";
+	createDIR($base);
+	if(  -e $oldFile){
+		my %oldHash = readHash($oldFile);
+		my %hash	= diffHash_app(\%oldHash,\%newHash);
+		my @keys = keys %hash;
+		foreach my $file (keys %hash) {
+			$num ++;
+		}
+		writeHash(\%hash,"$base/app.index");
+	}
+	debug("Add new app files num: $num");
+	return $num;
+}
+
+sub digestFile{
+	my ($path)= @_;
+	my $digest="";
+	my @status = stat($path);
+	my $size = -s $path;
+	my $modTime = $status[9];
+	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =localtime($modTime);
+	my $strTime= sprintf("%04d-%02d-%02d %02d:%02d:%02d", 1900+$year,$mon+1,$mday,$hour,$min,$sec);
+	$digest = "size: $size---time: $strTime";
+	return $digest;
+}
+

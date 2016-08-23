@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+$ENV{'LC_ALL'} = 'C';
+
+my $app="conps";
+
+dupProcess($file);
+my %ps = (
+           'aix' => 'ps -ef 2>/dev/null',
+           'hp-ux' => 'ps -efx',
+           'linux' => 'ps -auxww 2>/dev/null',
+           'sunos' => '/usr/ucb/ps -auxww'
+          );
+my $os = chkOS();
+my $cmd = $ps{$os};
+my @pslist = `$cmd`;
+my $pscount = 0;
+foreach my $ps (@pslist){
+	$pscount++;
+}
+
+$cmd = "netstat -na";
+my @conlist = `$cmd`;
+my $concount = 0;
+foreach my $con (@conlist){
+	if($con =~ /EST/){
+		$concount++;
+	}
+}
+my @perf = ();
+unshift(@perf,[$app,'ps_count','-',$pscount]);
+unshift(@perf,[$app,'net_count','-',$concount]);
+
+my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+writeArray($file,\@perf);
+my $dstDir = "$path/../../../run/queue/current/";
+`cp  $file $dstDir`;
+if($#perf >0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}

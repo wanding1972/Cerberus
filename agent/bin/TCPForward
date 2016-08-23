@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+require "$path/../conf/global.conf";
+require "$path/../lib/funcs.pl";
+require "$path/../lib/command.pl";
+
+my $app = "TCPForward";
+###########Usage######################################
+if($#ARGV < 0 || $ARGV[0] !~ /start|stop|test/){
+        print "Usage: $app.pl start|stop|test\n";
+        exit(-1);
+}
+my $operation = $ARGV[0];
+if($operation eq 'start') {
+        dupProcess($file);
+        daemon($app,"$path/../..");
+        start();
+}elsif($operation eq 'stop') {
+        stop();
+        exit(0);
+}elsif($operation eq 'test') {
+        start();
+        exit(0);
+}
+
+sub stop{
+	my $cmd = getCmd('ps');
+	my @outs = `$cmd`;
+	foreach my $line (@outs){
+		trim($line);
+			my @tokens = split / +/,$line;
+		if($line =~ /$app/ && $tokens[1] != $$){
+		$cmd = "kill -9 $tokens[1]";
+		`$cmd`;
+		debug($cmd);
+		}
+	}
+}
+sub start{
+	my $cmd = "java -classpath $path/java TCPForward $main::PORT $main::WEBSERVER $main::WEBPORT >/dev/null";
+	info($cmd);
+	system($cmd);
+}

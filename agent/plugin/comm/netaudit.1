@@ -1,0 +1,288 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+my $home = "$path/../../..";
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+
+$ENV{'LC_ALL'} = 'C';
+my $app = "netaudit";
+dupProcess($file);
+
+my $start = time;
+my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =localtime(time);
+my (%ports,%ips,%users,%conns);
+%ports  = getHostPort();
+%ips    = getHostIP();
+%users  = getUser();
+%conns  = getNetConn();
+
+my $numPorts = scalar keys %ports;
+my $numIPs  = scalar keys %ips;
+my $numUsers = scalar keys %users;
+my $numConns = scalar keys %conns;
+
+if($numPorts >0 and $numIPs >0 and $numUsers >=0 and $numConns>=0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+
+sub getHostPort{
+        my $os = `uname -s`;
+        chomp($os);
+        my @lines = `netstat -na`;
+        my %results = ();
+        foreach my $line (@lines) {
+                chomp($line);
+                next if($line =~ /127.0.0.1/);
+                $line=~s/^\s*|\s*$//g;
+                #Linux|AIX|HP-UX udp tcp.+LISTEN
+                my $port = -1;
+                if($os eq 'Linux' && $line !~ /LISTENING/ && $line =~ /^tcp.+LISTEN/){
+                                my @tokens = split / +/,$line;
+                                if($tokens[3] =~ /.+:([0-9]+)/){
+                                        $port = $1;
+                                        $results{$port} = $tokens[0];
+                                }
+                }elsif($os eq 'SunOS' && $line =~ / LISTEN/){                   #SunOS LISTEN
+                                my @tokens = split / +/,$line;
+                                if($tokens[0] =~ /.+\.([0-9]+)/){
+                                        $port = $1;
+                                        $results{$port} = $tokens[0];
+                                }
+                }elsif($os =~ /HP-UX|AIX/ && $line =~ /^tcp.+LISTEN/){
+                                my @tokens = split / +/,$line;
+                                if($tokens[3] =~ /.+\.([0-9]+)/){
+                                        $port = $1;
+                                        $results{$port} = $tokens[0];
+                                }
+                }
+        }
+        return %results;
+}
+
+sub getUser{
+        my $curFile = "$home/run/log/curUser.log";
+        my $histFile = "$home/run/log/hisUser.log";
+        my %lastUsers = ();
+        if(open(FILE,$curFile)){
+                my @lines = <FILE>;
+                foreach my $line (@lines) {
+                        chomp($line);
+                        if($line =~ /(.+)=(.+)/){
+                                $lastUsers{$1} = $2;
+                        }
+                }
+                close(FILE);
+        }
+        my %curUsers = ();
+        my $curTime = time;
+        my @lines = `who -u`;
+        foreach my $line (@lines) {
+                chomp($line);
+                $line=~s/^\s*|\s*$//g;
+                my @tokens = split / +/,$line;
+                my ($ip,$tty,$user);
+                ($user,$tty) = ($tokens[0],$tokens[1]);
+                if($line =~ /(\d+\.\d+\.+\d+\.\d+)/){
+                        $ip = $1;
+                }else{
+                        $ip = 'console';
+                }
+                if(! exists $lastUsers{"$user-$tty-$ip"}){      #new login user
+                        $curUsers{"$user-$tty-$ip"} = $curTime;
+                }else{
+                        $curUsers{"$user-$tty-$ip"} = $lastUsers{"$user-$tty-$ip"};
+                }
+        }
+        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =localtime(time-24*3600);
+        my $tag = sprintf("%04d%02d%02d",$year+1900,$mon+1,$mday);
+        my $oldFile = "$home/run/log/hisUser.$tag.log";
+        if( ! -e $oldFile){
+              `mv $histFile  $oldFile`;
+        }
+        if(open(FILE,">>$histFile")){
+                my $endTime = time;
+                foreach my $key (keys %lastUsers) {
+					if(! exists $curUsers{$key}){
+				my $ela = $endTime-$lastUsers{$key};
+				print FILE $key. '------'. $ela.'-----'.strTime($lastUsers{$key}).'--------'.strTime($endTime)."\n";
+					}
+                }
+                close(FILE);
+        }
+        if(open(FILE,">$curFile")){
+                foreach my $key (keys %curUsers) {
+                        print FILE "$key=$curUsers{$key}\n";
+                }
+                close(FILE);
+        }
+        return %curUsers;
+}
+
+sub getNetConn{
+        my $curFile  = "$home/run/log/curConn.log";
+        my $histFile = "$home/run/log/hisConn.log";
+        my $os = `uname -s`;
+        chomp($os);
+        my %lastConns = ();
+        if(open(FILE,$curFile)){
+                my @lines = <FILE>;
+                foreach my $line (@lines) {
+                        chomp($line);
+                        if($line =~ /(.+)=(.+)/){
+                                $lastConns{$1} = $2;
+                        }
+                }
+                close(FILE);
+        }
+        my %curConns = ();
+        my $curTime = time;
+
+        my ($direct,$port,$ip);
+        my @lines = `netstat -na`;
+        my @results = ();
+        foreach my $line (@lines) {
+                chomp($line);
+                next if($line =~ /127.0.0.1/);
+                next if($line !~ /ESTABLISHED/);
+                my @tokens = split / +/,$line;
+                my ($srcIP,$srcPort,$dstIP,$dstPort);
+                if($os =~ /HP-UX|AIX/){
+                        if($tokens[3] =~ /(\d+\.\d+\.+\d+\.\d+).(\d+)/){
+                                $srcIP = $1;
+                                $srcPort = $2;
+                        }
+                        if($tokens[4] =~ /(\d+\.\d+\.+\d+\.\d+).(\d+)/){
+                                $dstIP = $1;
+                                $dstPort = $2;
+                        }
+                }elsif($os eq 'Linux'){
+                        if($tokens[3] =~ /(\d+\.\d+\.+\d+\.\d+):(\d+)/){
+                                $srcIP = $1;
+                                $srcPort = $2;
+                        }
+                        if($tokens[4] =~ /(\d+\.\d+\.+\d+\.\d+):(\d+)/){
+                                $dstIP = $1;
+                                $dstPort = $2;
+                        }
+                }elsif($os eq 'SunOS'){
+                        if($tokens[0] =~ /(\d+\.\d+\.+\d+\.\d+).(\d+)/){
+                                $srcIP = $1;
+                                $srcPort = $2;
+                        }
+                        if($tokens[1] =~ /(\d+\.\d+\.+\d+\.\d+).(\d+)/){
+                                $dstIP = $1;
+                                $dstPort = $2;
+                        }
+                }
+                if($dstIP ne $srcIP and $srcPort>0 and $dstPort>0){
+                                ($direct,$port,$ip) =   processLine($srcIP,$srcPort,$dstIP,$dstPort) ;
+                                        if(! exists $lastConns{"$direct-$port-$ip"}){
+                                                $curConns{"$direct-$port-$ip"} = $curTime;
+                                        }else{
+                                                $curConns{"$direct-$port-$ip"} = $lastConns{"$direct-$port-$ip"};
+                                        }
+                }
+        }
+        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =localtime(time-24*3600);
+        my $tag = sprintf("%04d%02d%02d",$year+1900,$mon+1,$mday);
+        my $oldFile = "$home/run/log/hisConn.$tag.log";
+        if( ! -e $oldFile){
+              `mv $histFile  $oldFile`;
+        }
+        if(open(FILE,">>$histFile")){
+                my $endTime = time;
+                foreach my $key (keys %lastConns) {
+                   if(! exists $curConns{$key}){
+                        my $ela = $endTime-$lastConns{$key};
+                        print FILE $key. '------'. $ela.'-----'.strTime($lastConns{$key}).'--------'.strTime($endTime)."\n";
+                   }
+                }
+                close(FILE);
+        }
+        if(open(FILE,">$curFile")){
+                foreach my $key (keys %curConns) {
+                        print FILE "$key=$curConns{$key}\n";
+                }
+                close(FILE);
+        }
+        return %curConns;
+}
+
+
+sub getHostIP{
+        my $os = `uname -s`;
+        chomp($os);
+        my %cmdsip = (
+                        'HP-UX' =>'/usr/bin/netstat -in',
+                        'Linux' => '/sbin/ifconfig -a|grep Mask',
+                        'SunOS' => '/sbin/ifconfig -a|grep netmask',
+                        'AIX' => '/usr/sbin/ifconfig -a|grep netmask'
+                        );
+        my @output = `$cmdsip{$os}`;
+        my %ips = ();
+        foreach my $line (@output) {
+                        my $ip;
+                        chomp $line;
+                        $line=~s/^\s*|\s*$//g;
+                        my @tokens = split / +/,$line;
+                        next if($line =~ /127.0.0.1/);
+                        if($os eq 'Linux'){
+                           if($line =~ /addr:([^ ]+).+Mask/){
+                                         $ip = $1;
+                                         $ips{$ip} = 1;
+                           }
+                        }elsif($os eq 'HP-UX'){
+                                        if($tokens[3] =~ /\d+\.\d+\.\d+\.\d+/){
+                                         $ip = $tokens[3];
+                                         $ips{$ip} = 1;
+                                        }
+                        }elsif($os eq 'AIX'){
+                                        $ip = $tokens[1];
+                                         $ips{$ip} = 1;
+                        }elsif($os eq 'SunOS'){
+                                        $ip = $tokens[1];
+                                         $ips{$ip} = 1;
+                        }
+        }
+        return %ips;
+}
+
+
+sub processLine{
+        my ($srcIP,$srcPort,$dstIP,$dstPort) = @_;
+        my ($direct,$port,$ip);
+		if(exists $ips{$srcIP}){                #srcIP is localhost
+				if(exists $ports{$srcPort}){
+						$direct = 'IN';
+						$port = $srcPort;
+						$ip = $dstIP;
+				}else{
+						$direct = 'OUT';
+						$port = $dstPort;
+						$ip = $dstIP;
+				}
+		}elsif(exists $ips{$dstIP}){            #dstIP is localHost
+				if(exists $ports{$dstPort}){
+						$direct = 'IN';
+						$port = $dstPort;
+						$ip = $srcIP;
+				}else{
+						$direct = 'OUT';
+						$port = $srcPort;
+						$ip = $srcIP;
+				}
+		}
+        return ($direct,$port,$ip);
+
+}
+
+sub strTime{
+        my ($time) = @_;
+        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =localtime($time);
+        my $strTime = sprintf("%04d-%02d-%02d %02d:%02d:%02d", 1900+$year,$mon+1,$mday,$hour,$min,$sec);
+        return $strTime;
+}

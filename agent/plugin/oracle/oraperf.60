@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+use strict;             
+use File::Spec; 
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+                
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+$ENV{'LC_ALL'} = 'C';
+
+my $app="oraperf";
+dupProcess($file);
+if(hasService('oracle') == 0){
+        print "has no oracle service\n";
+        exit 1;
+}
+my $user = loginUser();
+if($user !~ /ora/){
+        print "is not oracle user\n";
+        exit 0;
+}
+
+my $sql = "select 'TD', a.name,a.value,round(a.value/b.value*100) ratio from 
+(select 'sessions' name ,count(*) value from v\\\$session) a, (select name,value from v\\\$parameter where name='sessions') b
+where a.name=b.name; ";
+my @lines = execSQL($sql);
+shift(@lines);
+print "session, sessionNum  sessionRatio \n";
+my $count = 0;
+       my @perf = ();
+foreach my $line (@lines){
+        next if($line !~ /TD/);
+	next if($line =~ /NAME|SQL/);
+        my $line1 = trim($line);
+        my @tokens = split /[ \t]+/,$line1;
+	my ($num,$ratio) = ($tokens[2],$tokens[3]);
+        push(@perf,[$app,'sessNum','-',$num]);
+        push(@perf,[$app,'sessRatio','-',$ratio]);
+	$count++;
+}
+if($count>0){
+	push(@perf,[$app,'oraCon','-',1]);
+}else{
+	push(@perf,[$app,'oraCon','-',0]);
+}
+
+        my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+        my $dstDir = "$path/../../../run/queue/current/";
+        writeArray($file,\@perf);
+        `cp  $file $dstDir`;
+
+`echo $$ > $path/../../../run/tmp/$app.pid`;

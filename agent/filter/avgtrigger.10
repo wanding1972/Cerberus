@@ -1,0 +1,88 @@
+#!/usr/bin/perl
+##################################################################################
+#  Copyright (c) 2016 Wan Ding.                                                  #
+#  All rights reserved.                                                          #
+#  THIS SOFTWARE IS ADOPTED THE BSD LICENSE.                                     #
+#  Project: github.com/wanding1972/Cerberus                                      #
+##################################################################################
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+require "$path/../conf/trigger.rule";
+require "$path/../conf/global.conf";
+require "$path/../lib/funcs.pl";
+dupProcess($file);
+my @eventLst = ();
+my $dirData = "$path/../../run/queue/evt1";
+my $eventFile = "$dirData/eventAvg.".curtime().".dat";
+avgtrigger();
+`echo $$ > $path/../../run/tmp/avgtrigger.pid`;
+
+
+sub avgtrigger{
+	my $topic = "$path/../../run/queue/2";
+	opendir(DIR,$topic);
+	my @files = readdir(DIR);
+	closedir(DIR);
+	foreach my $file (@files) {
+       		next if($file eq '..' ||  $file eq '.' );
+	        my $path = "$topic/$file";
+	        next if( -l $path); 
+		doFile($path);
+	}
+	if($#eventLst >=0){
+	if(open(FILE,">$eventFile")){
+       		 foreach my $item (@eventLst){
+               		 print FILE  "$item\n";
+        	}
+	        close(FILE);
+	}
+	}
+	foreach my $file (@files) {
+                next if($file eq '..' ||  $file eq '.' );
+                my $pathin = "$topic/$file";
+                next if( -l $pathin);     #Ìø¹ýÈíÁ´½Ó
+		unlink($pathin);
+        }
+}
+
+sub doFile{
+	my ($file) = @_;
+	return if(!open(FILE,$file));
+	my @lines = <FILE>;
+	foreach my $line (@lines){
+		chomp($line);
+		my (@tokens) = split /,/,$line;
+		shift(@tokens);
+		my($app,$index,$fac) = ($tokens[0],$tokens[1],$tokens[2]);
+		my $value = $tokens[3];
+		my $key = "$app.$index.$fac";
+		if(exists($para::rulesAvg{$key})){
+			my $itemsRef = $para::rulesAvg{$key};
+			foreach my $item (keys %$itemsRef){
+				my $expr = $value . $item;
+				if (eval($expr)){	
+					my $alarmType = $$itemsRef{$item};	
+					push(@eventLst,"$alarmType,$app.$index,$fac,$expr");
+				}
+			}
+		}
+		$key = "$app.$index.*";
+		if(exists($para::rulesAvg{$key})){
+			my $itemsRef = $para::rulesAvg{$key};
+			foreach my $item (keys %$itemsRef){
+				my $expr = $value .$item;
+				if (eval($expr)){	
+					my $alarmType = $$itemsRef{$item};
+					push(@eventLst,"$alarmType,$app.$index,$fac,$expr");
+				}
+			}
+			
+		}
+	}
+	close(FILE);
+}
+
+1;

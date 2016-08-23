@@ -1,0 +1,93 @@
+#!/usr/bin/perl
+##################################################################################
+#  Copyright (c) 2016 Wan Ding.                                                  #
+#  All rights reserved.                                                          #
+#  THIS SOFTWARE IS ADOPTED THE BSD LICENSE.                                     #
+#  Project: github.com/wanding1972/Cerberus                                      #
+##################################################################################
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+require "$path/../conf/global.conf";
+require "$path/../lib/funcs.pl";
+require "$path/../conf/trigger.rule";
+
+dupProcess($file);
+
+my @eventLst = ();
+my $dirData = "$path/../../run/queue/evt1";
+my $eventFile = "$dirData/event.".curtime().".dat";
+
+realtrigger();
+`echo $$ > $path/../../run/tmp/realtrigger.pid`;
+
+sub realtrigger{
+	my $topic = "$path/../../run/queue/current";
+	opendir(DIR,$topic);
+	my @files = readdir(DIR);
+	closedir(DIR);
+	foreach my $file (@files) {
+       		next if($file eq '..' ||  $file eq '.' );
+	        my $path = "$topic/$file";
+	        next if( -l $path); 
+		doFile($path);
+	}
+	if($#eventLst >=0){
+	  if(open(FILE,">$eventFile")){
+       		 foreach my $item (@eventLst){
+               		 print FILE  "$item\n";
+        	}
+	        close(FILE);
+	  }
+	}
+	foreach my $file (@files) {
+                next if($file eq '..' ||  $file eq '.' );
+                my $pathin = "$topic/$file";
+                next if( -l $pathin);   
+		`mv $pathin $path/../../run/queue/1`;
+        }
+}
+
+sub doFile{
+        my ($file) = @_;
+        return if(!open(FILE,$file));
+        my @lines = <FILE>;
+        close(FILE);
+        foreach my $alarmType (keys %para::rules){
+                my $ref = $para::rules{$alarmType};
+                my %summarys = ();
+                my %rets = ();
+                my ($app,$index,$fac,$value);
+                foreach my $rule (keys %$ref){
+                        my $cond = $$ref{$rule};
+                        foreach my $line (@lines){
+                                chomp($line);
+                                ($app,$index,$fac,$value) = split /,/,$line;
+                                if($rule =~ /\*/){
+                                        next if( "$app.$index.*" ne $rule);
+                                }else{
+                                        next if( "$app.$index.$fac" ne $rule);
+                                }
+                                my $expr = $value.$cond;
+                                my $ret = eval($expr);
+                                if(exists $rets{"$app.$fac"}){
+                                        $rets{"$app.$fac"}     = $rets{"$app.$fac"} && $ret;
+                                        $summarys{"$app.$fac"} = $summarys{"$app.$fac"} ." $app.$index  $expr";
+                                }else{
+                                        $rets{"$app.$fac"}      = $ret;
+                                        $summarys{"$app.$fac"}  = " $app.$index  $expr";
+                                }
+                        }
+                }
+                foreach my $key (keys %rets){
+                        if($rets{$key} == 1){
+                                push(@eventLst,"$alarmType,$key,$key,$summarys{$key}");
+                                print "$alarmType,$key,$key,$summarys{$key} \n";
+                        }
+                }
+        }
+}
+
+1;

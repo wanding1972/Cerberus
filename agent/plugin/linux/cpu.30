@@ -1,0 +1,43 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/command.pl";
+
+$ENV{'LC_ALL'} = 'C';
+my $app = "cpu";
+dupProcess($file);
+my @res = cpuplugin();
+if($#res >0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+sub cpuplugin{
+	my @outs = cpuparse(mycmds('vmstat'));
+        my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+        writeArray($file,\@outs);
+        my $dstfile = "$path/../../../run/queue/current/";
+	`cp $file $dstfile`;
+	return @outs;
+}
+	
+sub cpuparse{
+	my (@lines) = @_;
+	my $line = trim($lines[$#lines]);
+	my @tokens = split / +/,$line;
+	my @perf = ();
+ 	push(@perf,[$app,'cpu_idle','-',$tokens[14]]);
+	push(@perf,[$app,'task_run','-',$tokens[0]]);
+ 	push(@perf,[$app,'task_block','-',$tokens[1]]);
+ 	push(@perf,[$app,'swap_free','-',int($tokens[2]/1024+0.5)]);
+ 	push(@perf,[$app,'mem_free','-',int($tokens[3]/1024+0.5)]);
+ 	push(@perf,[$app,'page_out','-',$tokens[9]]);
+ 	push(@perf,[$app,'interupt','-',$tokens[10]]);
+ 	push(@perf,[$app,'cs','-',$tokens[11]]);
+	return @perf;
+}
+
+1

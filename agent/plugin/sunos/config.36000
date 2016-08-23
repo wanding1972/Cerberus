@@ -1,0 +1,57 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+
+$ENV{'LC_ALL'} = 'C';
+
+my $app = "config";
+dupProcess($file);
+
+my $dirData="$path/../../../run/";
+my %hash=configplugin();
+my $outFile = "$path/../../../run/queue/config/config".curtime().'.dat';
+writeHash(\%hash, "$outFile");
+my @keys = keys %hash;
+if($#keys>2){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+sub colConfig{
+        my %hash = ();
+        my $res = `uname -sr`;
+        chomp($res);
+        $hash{'os'} = $res;
+        $res = `prtconf|grep Memory`;
+        chomp($res);
+        $hash{'mem'} = $res;
+	$res = `openssl version`;
+	chomp($res);
+	$hash{'ssl_version'} = $res;
+	my @lines = `java -version 2>&1`;
+	chomp($lines[0]);
+	$hash{'java_version'} = $lines[0];
+        return %hash;
+}
+
+sub configplugin{
+	my %hash = colConfig();
+	my $fileBase = "$dirData/data/config/config.base";
+	if(-e $fileBase && -s $fileBase){}else{
+		writeHash(\%hash,$fileBase);
+	}
+	my $file = "$dirData/tmp/config.new";
+	my $fileOld = "$dirData/tmp/config.old";
+	if( -e $file && -s $file){
+       		 `mv $file $fileOld`;
+	}else{
+       		 `touch $fileOld`;
+	}
+	writeHash(\%hash,$file);
+	my %oldHash = readHash($fileOld);
+	my %diffHash = diffHash(\%oldHash,\%hash);
+	return %hash;
+}

@@ -1,0 +1,50 @@
+#!/usr/bin/perl
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/command.pl";
+
+$ENV{'LC_ALL'} = 'C';
+my $app = "ping";
+dupProcess($file);
+our $gateway = getGW();
+my @res = pingplugin();
+if(scalar @res >0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+sub pingplugin{
+        my $cmd = $hpuxCmd{'ping'};
+        $cmd =~ s/Gateway/$gateway/g;
+        my @lines = `$cmd`;
+        my @outs = pingparse(@lines);
+        my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+        my $dstDir = "$path/../../../run/queue/current/";
+        writeArray($file,\@outs);
+        `cp  $file $dstDir`;
+	return @outs;
+}
+
+sub pingparse{
+        my @result = @_;
+        my ($line,$lossrate,$roundtrip);
+        foreach $line (@result){
+          chomp($line);
+          if($line =~/transmitted/){
+                $lossrate = extract($line,"received, ([0-9]+)%");
+          }
+          if($line =~ /min\/avg\/max/){
+                $roundtrip = extract($line,"[0-9\.]+/([0-9\.]+)/[0-9\.]+");
+          }
+        }
+        if($lossrate== 100 ){
+                $roundtrip = 9999;
+        }
+	my @perf = ();
+        push(@perf,[$app,'loss',$gateway,$lossrate]);
+        push(@perf,[$app,'delay',$gateway,$roundtrip]);
+        return @perf;
+}
+

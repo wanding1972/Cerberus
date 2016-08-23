@@ -1,0 +1,26 @@
+our %service=(
+#	'sample'=>{
+#		'ps_count' => ['alarmcenter','<1'], 
+#		'proc_timeout' => ['FmtFlux.pl','>60'], 
+#		'file_mtime' => ['/zhangsan/resin/log/failure.log','>30'], 
+#	'file_size'  => ['/zhangsan/backup/{WEEK-2}/{YYYYMMDD-2}/zhangsan_config.{YYYYMM-0}','>5000000000'],  
+#		'file_content' => ['/oracle/admin/dbnms/alert_dbnms.log','ORA-|error'],
+#		'dir_file'  => ['/zhangsan/nms/data/alarm/flux','>120'],    
+#		'tcp_connect' => ['127.0.0.1','2003'],
+#		'exec_cmd'    => ['/oracle/test.sh status','online'],
+#		'cron_1'      => ['root','watchdog'],
+#		'http_connect' => ['127.0.0.1:2003/caucho-status','200 OK']
+	#}
+	'redis' => {
+		'ps_count' => ['redis-server','<1']
+		   },
+	'oracle' => {
+		'ps_count' => ['ora_','<4']
+		},
+	'syslog' => {
+		'ps_count' => ['GetSyslog.pl','<1']
+		}
+);
+
+
+1;

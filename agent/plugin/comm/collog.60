@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+use File::Basename;
+use Env;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+$ENV{'LC_ALL'} = 'C';
+require "$path/../../lib/funcs.pl";
+my $app = "log";
+dupProcess($file);
+my $logFile = "$path/../../../run/queue/log/".basename($file).curtime().".dat";
+my $bpFile = "$path/../../../run/tmp/log.BP";
+my %bps = readHash($bpFile);
+
+my %rules = readHash("$path/../../conf/log.rule");
+foreach my $file (keys %rules){
+	my @outs = ();
+	my $last_point = defined $bps{$file}?$bps{$file}:0;
+        my $realPath = "$file";
+        if($file !~ /^\//){
+                $realPath = "$HOME/$file";
+        }else{
+                $realPath = "$file";
+        }
+        if( ! -e $realPath){
+                print "$realPath not exists \n";
+                next;
+        }
+        my $cur_point = -s $realPath;
+        #若没有新LOG，则SLEEP
+        if ($cur_point == $last_point){
+              next;
+        }elsif ($cur_point < $last_point){ 
+              $last_point = 0 ;
+        }
+        my ($allow,$deny) = split /,/,$rules{$file};
+        if(open(LOGFILE,$realPath)){
+                seek(LOGFILE,$last_point,0);
+                while(my $l_record = <LOGFILE> ){
+                        chomp($l_record);
+                        next if(defined $deny && $l_record =~ /$deny/i);
+                        if($l_record =~ /$allow/){
+                                unshift(@outs,$l_record);
+                        }
+                }
+                if (my $last_point_tmp = tell(LOGFILE)){
+                        $last_point=$last_point_tmp ;
+                }
+                close(LOGFILE);
+        }
+	$bps{$file} =$last_point;
+	
+	my  $tag = basename($file);
+	if(open(FILE,">$logFile")){
+		foreach my $line (@outs){
+       		    print FILE  "$tag $line\n";
+		}
+        	close(FILE);
+	}
+}
+writeHash(\%bps,$bpFile);
+
+`echo $$ > $path/../../../run/tmp/$app.pid`;

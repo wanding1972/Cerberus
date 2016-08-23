@@ -1,0 +1,4 @@
+miops/run/log/hisUser.log=.*
+miops/run/log/hisConn.log=.*
+miops/run/log/hisFile.log=.*
+miops/run/log/hisCmd.log=.*

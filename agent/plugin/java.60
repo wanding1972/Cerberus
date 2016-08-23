@@ -1,0 +1,54 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+my $home = "$path/../../..";
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+$ENV{'LC_ALL'} = 'C';
+
+dupProcess($file);
+my $app = "java";
+
+my $cmd = 'jps';
+my @outs = `$cmd`;
+my %pids = ();
+my @perf = ();
+foreach my $line (@outs){
+        chomp($line);
+        my ($pid,$name) = split / +/,$line;
+        next if($name eq 'Jps');
+        $pids{$name} = $pid;
+}
+
+foreach my $name (keys %pids){
+        my $pid = $pids{$name};
+        $cmd = "jstack $pid 2>&1";
+        @outs = `$cmd`;
+        my $count = 0;
+        foreach my $line (@outs){
+                if($line =~ /^Thread/){
+                        $count++;
+                }
+        }
+	unshift(@perf,[$app,"threads",$name,$count]);
+}
+
+foreach my $name (keys %pids){
+        my $pid = $pids{$name};
+        $cmd = "jstat -gcutil $pid 3000 2";
+        @outs = `$cmd`;
+        my $line = pop(@outs);
+	trim($line);
+	my @tokens = split / +/,$line;
+	unshift(@perf,[$app,"permutil",$name,$tokens[4]]);
+	unshift(@perf,[$app,"oldutil",$name,$tokens[3]]);
+}
+
+my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+writeArray($file,\@perf);
+my $dstDir = "$path/../../../run/queue/current/";
+`cp  $file $dstDir`;
+`echo $$ > $path/../../../run/tmp/$app.pid`;

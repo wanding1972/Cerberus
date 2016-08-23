@@ -1,0 +1,114 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+my $home = "$path/../../..";
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/service.pl";
+
+$ENV{'LC_ALL'} = 'C';
+my $app = "service";
+my $serviceConf = "$path/../../conf/service.rule";
+if( -e $serviceConf){
+	require $serviceConf;
+}
+
+dupProcess($file);
+my @eventLst = ();
+foreach my $servicename (keys(%main::service)){
+	next if( hasService($servicename) == 0);
+	my $hashref = $main::service{$servicename};
+	my $paraname;
+	my $checkResult='';
+
+	my $index = "";
+	#iterate the check item of each service
+	foreach $paraname (keys(%$hashref)){
+		my $arrayref = $$hashref{$paraname};
+		my $value1 = $$arrayref[0];
+		my $value2 = $$arrayref[1];
+		my $retval = 'ok';
+		$index = $paraname;
+		$retval = paraChk($paraname,$value1,$value2);
+		if(($retval ne 'ok')&&($retval ne 'failed')){
+			$checkResult = $paraname.': '.$retval;
+			last;
+		}
+	}
+	if($checkResult ne ''){ 
+		push(@eventLst,"serviceFault,$app.$index,$servicename,$checkResult");
+	}else{
+		my $cmd = "$path/../../../run/tmp/$servicename".'.srv';
+		`touch $cmd`;
+		debug("service: $servicename is OK");
+	}
+}
+
+
+my $dirData = "$path/../../../run/queue/evt1";
+my $eventFile = "$dirData/eventService.".curtime().".dat";
+if($#eventLst >=0){
+        if(open(FILE,">$eventFile")){
+                 foreach my $item (@eventLst){
+                       print FILE  "$item\n";
+                }
+                close(FILE);
+        }
+}
+my $file = "$path/../../../run/tmp/$app.pid";
+`echo $$ > $file`;
+
+
+sub paraChk{
+	my($paraname,$value1,$value2) = @_;
+	my $retval = "ok";
+	SWITCH:{
+		if($paraname =~ /ps_count/){
+			$retval = chkProcess($value1,$value2);
+			last SWITCH;
+		}
+		if($paraname =~ /file_mtime/){
+			$retval = chkFileTime($value1,$value2);
+			last SWITCH;
+		}	
+		if($paraname =~ /file_size/){
+				$retval = chkFileSize($value1,$value2);
+				last SWITCH;
+		}       
+		if($paraname =~ /file_content/){
+				$retval = chkFileError($value1,$value2);	
+				last SWITCH;
+		}       
+		if($paraname =~ /dir_file/){
+				$retval = chkDirFile($value1,$value2);
+				last SWITCH;
+		}       
+		if($paraname =~ /proc_timeout/){
+				$retval = chkProcTimeout($value1,$value2);
+				last SWITCH;
+		} 
+		if($paraname =~ /tcp_connect/){
+				$retval = chkTCP($value1,$value2);
+				last SWITCH;
+		}       
+		if($paraname =~ /http_connect/){
+				$retval = chkHTTP($value1,$value2);
+				last SWITCH;
+		}
+                if($paraname =~ /exec_cmd/){
+                                $retval = chkCmd($value1,$value2);
+                                last SWITCH;
+                }
+                if($paraname =~ /cron/){
+                                $retval = chkCron($value1,$value2);
+                                last SWITCH;
+                }    
+		DEFAULT:{
+			last SWITCH;
+		}
+	}
+	return $retval;
+}

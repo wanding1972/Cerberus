@@ -1,0 +1,86 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/command.pl";
+
+$ENV{'LC_ALL'} = 'C';
+my $app = "disk";
+dupProcess($file);
+my @res = diskplugin();
+if(scalar @res >0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+sub diskplugin{
+	my @outs = dfiParse(mycmds('dfi'));
+        my $file = "$path/../../../run/data/perf/diski.".curtime().".dat";
+        writeArray($file,\@outs);
+        my $dstfile = "$path/../../../run/queue/current/";
+	`cp $file $dstfile`;
+	@outs = dfkParse(mycmds('dfk'));
+        $file = "$path/../../../run/data/perf/disk.".curtime().".dat";
+        writeArray($file,\@outs);
+        $dstfile = "$path/../../../run/queue/current/";
+	`cp $file $dstfile`;
+	return @outs;
+}
+
+sub dfkParse{
+	my (@outs) = @_;
+        shift @outs;
+        my @perf = ();
+        foreach my $line (@outs){
+                       chomp($line);
+                        $line=~s/^\s*|\s*$//g;
+                        my ($util,$disk,$free);
+                        next if($line =~ /^[^ ]+$/);
+                        my @tokens = split(/[\t ]+/,$line);
+                        if($line =~ /^\d+/){
+                                        chop($tokens[3]);
+                                        $util = $tokens[3];
+                                        $free = int($tokens[2]/1024*10)/10;
+                                        $disk = $tokens[7];
+                        }else{
+                                        chop($tokens[4]);
+                                        $util = $tokens[4];
+                                        $free = int($tokens[3]/1024*10)/10;
+                                        $disk = $tokens[5];
+                        }
+                push(@perf,[$app,'util',$disk,$util]);
+                push(@perf,[$app,'free',$disk,$free]);
+        }
+        return @perf;
+}
+
+sub dfiParse{
+	my (@outs) = @_;
+        shift @outs;
+        my @perf = ();
+        foreach my $line (@outs){
+                chomp($line);
+                $line=~s/^\s*|\s*$//g;
+                next if($line =~ /^[^ ]+$/);
+                my ($util,$disk,$free);
+                my @tokens = split /[\t ]+/,$line;
+                if($line =~ /^\d+/){
+                                chop($tokens[6]);
+                                $free = $tokens[5];
+                                $util = $tokens[6];
+                                $disk = $tokens[7];
+                }else{
+                                 chop($tokens[7]);
+                                 $util = $tokens[7];
+                                 $free = $tokens[6];
+                                 $disk = $tokens[8];
+                }
+                push(@perf,[$app,'iutil',$disk,$util]);
+                push(@perf,[$app,'ifree',$disk,$free]);
+        }
+        return @perf;
+}
+
+1;

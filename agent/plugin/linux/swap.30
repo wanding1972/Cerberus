@@ -1,0 +1,54 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/command.pl";
+
+$ENV{'LC_ALL'} = 'C';
+my $app = "swap";
+dupProcess($file);
+my @res = swapplugin();
+if(scalar @res >0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+sub swapplugin{
+	my @outs = swapparse(mycmds('swap'));
+        my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+	my $dstDir = "$path/../../../run/queue/current/";
+        writeArray($file,\@outs);
+	`cp  $file $dstDir`;
+	return @outs;
+}
+
+sub swapparse{
+	my (@lines) = @_;
+        my $swapRatio = 0;
+        my $swapUsed = 0;
+        my ($used,$free,$buffer,$cache);
+	my @perf = ();
+        foreach my $line (@lines){
+                trim($line);
+		next if($line =~ /^$/);
+                my @tokens = split / +/,$line;
+                if($line =~ /Swap/){
+                        $swapRatio = int($tokens[2]/$tokens[1]*100);
+                        $swapUsed = $tokens[2];
+                }
+               if($line =~ /Mem/){
+                        ($used,$free,$buffer,$cache) = ($tokens[2],$tokens[3],$tokens[5],chomp($tokens[6]));
+                }
+        }
+        push(@perf,[$app,'swap_ratio','-',$swapRatio]);
+        push(@perf,[$app,'swap_used','-',$swapUsed]);
+        push(@perf,[$app,'mem_free','-',$free]);
+        push(@perf,[$app,'mem_buffer','-',$buffer]);
+        push(@perf,[$app,'mem_cache','-',$cache]);
+        push(@perf,[$app,'mem_used','-',$used]);
+	return @perf;
+}
+
+1;

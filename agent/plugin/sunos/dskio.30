@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/command.pl";
+
+$ENV{'LC_ALL'} = 'C';
+my $app = 'dskio';
+dupProcess($file);
+my @res = ioplugin();
+if($#res >0){
+	`echo $$ > $path/../../../run/tmp/$app.pid`;
+}
+
+
+sub ioplugin{
+	my @data= ioparse(mycmds('iostat'));
+        my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
+        writeArray($file,\@data);
+        my $dstfile = "$path/../../../run/queue/current/";
+	`cp $file $dstfile`;
+	return @data;
+}
+
+
+sub ioparse{
+	my(@lines) = @_;
+	my @perf = ();
+	my $count=0;
+       foreach my $line (@lines){
+                if($line =~ /extended device statistics/){
+                        $count++;
+                }
+                if(($count ==2)&&($line =~/c\d{1,}t\d/)){
+                        chomp($line);
+                        $line=~s/^\s*|\s*$//g;
+                        my @tokens = split / +/,$line;
+                        my ($disk,$r,$w,$util,$await) = ($tokens[10],$tokens[0],$tokens[1],$tokens[9],$tokens[6]);
+                       push(@perf,[$app,'util',$disk,$util]);
+                        push(@perf,[$app,'r/s',$disk,$r]);
+                        push(@perf,[$app,'w/s',$disk,$w]);
+                }
+        }
+	return @perf;	
+}
+
+
+1

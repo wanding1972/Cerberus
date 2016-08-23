@@ -1,0 +1,30 @@
+package para;
+
+our %rulesAvg = (
+	'cpu.cpu_idle.*' => { '<12'  => 'cpu idle avg less 12%' },
+	'dskio.util.*'  =>  { '>80'  => 'IObusy great than 80%' },
+	'cpu.page_out.*' => { '>3000'=> 'PAGEOUT'}
+	);
+
+our %autoActions = (
+#	'serviceFault.lappbak' => '$HOME/aa.sh',
+	'cpu_idle_less_2%.-'     => '$HOME/miops/agent/tools/snapshot.pl'
+	);
+
+our %rules = (
+	 'disk_free_lessthan_500M' =>{
+					'disk.free.*' => '<500',
+					'disk.util.*' => '>95'
+					},
+	'tblspace_free500M_ratio>95' =>{
+					'oraconfig.ts_free.*'  => '<500',
+					'oraconfig.ts_ratio.*' => '>95'
+					},
+	'swap_ratio_exceed_60%'	   =>  { 'swap.swap_ratio.*'      => '>60' },
+	'cpu_idle_less_2%' 	   =>  { 'cpu.cpu_idle.-'        => '<2'  },
+	'index_failes'		   =>  { 'oraconfig.ind_fails.-' => '>0'  },
+	'oracleSessionExceed'      =>  { 'oraperf.sessRatio.-'   => '>95' }
+        );
+
+	
+1;
