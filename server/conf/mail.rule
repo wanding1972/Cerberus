@@ -6,6 +6,7 @@ our @discards = (
 	'disk.free,/boot',
 	'/xenstored',
 	'/proc',
+	'/mnt',
 	'/devperf',
 	'/htdocs.tar.gz',
 	'/media',
