@@ -24,7 +24,8 @@ our %triggers = (
 	);
 our %cleans = (
 	#alarmType,ela
-	"disk_free_lessthan_500M" =>  2400
+	"disk_free_lessthan_500M" =>  2400,
+	"AGENT_CRASH"   => 1800
 	);
 
 our %mails = (
