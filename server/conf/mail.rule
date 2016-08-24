@@ -19,6 +19,7 @@ our %triggers = (
     	'net_in_exceed_1M' => 1,
 	'swap_ratio_exceed_60%' => 2,
 	'index_failes'	=>1,
+	'AGENT_CRASH'   =>1,
 	'oracleSessionExceed' => 2
 	);
 our %cleans = (

@@ -17,7 +17,8 @@ my $lstFile    = "$path/../conf/host.lst";
 my %hosts;              #key=time
 
 #memory cache
-my %hostStatus;         #key=status
+my %failedHosts = ();   
+my %hostStatus;        
 my @eventList = ();
 my @perfList = ();
 my @logList = ();
@@ -43,8 +44,8 @@ if($sockpid > 0) {      #father process
                 open STDERR,"/dev/null";
                 $SIG{'CHLD'}='IGNORE';
                 while(1) {
-                        sleep 90;
-                                                                             kill 'USR1',$sockpid;
+                        sleep 180;
+                        kill 'USR1',$sockpid;
                 }
         }
         print "child:$timeoutpid\n";
@@ -90,6 +91,14 @@ while(1) {
                         foreach my $event (@eventList){
                                 print HELLO $event;
                         }
+			my @failedList = ();
+			foreach my $key1 (keys %failedHosts){
+				print HELLO "$strTime,$key1,AGENT_CRASH,acceptor.health,-,agent may be crashed\n";
+				unshift(@failedList,$key1);
+			}
+			foreach my $key1 (@failedList){
+				delete $failedHosts{$key1};
+			}
                         close(HELLO);
                    }
                    @eventList = ();
@@ -102,7 +111,7 @@ while(1) {
 			`mv $path/../../data/state.log $stateLog`;
 		}
                 if(open(HELLO,">>$path/../../data/stat.log")){
-                        print HELLO $event;
+			print HELLO "$strTime,$key,$msg\n";
                         close(HELLO);
                 }
         }elsif($type eq 'config'){
@@ -192,6 +201,7 @@ sub output(){
                         my $status = 'ONLINE';
                         if($elapse > $main::EXPIRETIME) {
                                 $status = 'OFFLINE';
+				$failedHosts{$key} = 1;
                         }
                         $now = $now - 3600*24*365*46;
                         $hellotime = $hellotime - 3600*24*365*46;
