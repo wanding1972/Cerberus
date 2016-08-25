@@ -59,8 +59,7 @@ foreach my $servicename (keys(%main::service)){
 		 if(exists $serviceReg{$servicename}){
                         if($serviceReg{$servicename} =~ /(\d+)-(\d+)/){
 				my $interval = time-$2;
-				my $ELAPSE = 60*60*24;
-				if($interval > $ELAPSE){ 
+				if($interval > $main::UNREG_TIMEOUT){ 
 					unshift(@deleteKey,$servicename);
 				}
                         }

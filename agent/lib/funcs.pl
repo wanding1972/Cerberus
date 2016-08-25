@@ -2,6 +2,7 @@ use POSIX 'setsid';
 use File::Spec;
 my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
 my %ps = (
                         'aix' => 'ps -ef 2>/dev/null',
                         'hp-ux' => 'ps -efx',
@@ -273,13 +274,14 @@ sub loadLocalConf{
 	return ($site,$ip,$server,$webserver,$webport);
 }
 
+			print "---------- $REG_TIMEOUT";
 sub hasService{
         my ($service) = @_;
         my %hash = readHash("$path/../../run/cfg/service.reg");
         if(exists $hash{$service}){
                 if($hash{$service} =~ /(\d+)-(\d+)/){
                         my $interval = $2-$1;
-                        if($interval > 600){
+                        if($interval > $REG_TIMEOUT){
                                 return 1;
                         }
                 }
