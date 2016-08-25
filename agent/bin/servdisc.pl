@@ -42,7 +42,10 @@ foreach my $servicename (keys(%main::service)){
        		if($paraname =~ /ps_count/){
                         $retval = chkProcess($value1,$value2);
 			last;
-                }
+                }elsif($paraname =~ /cron/){
+			$retval = chkCron($value1,$value2);
+			last;
+		}
 	}
 	if($retval eq 'ok'){
 		if(exists $serviceReg{$servicename}){

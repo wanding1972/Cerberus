@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use strict;
+use Env;
 use File::Spec;
 use File::Basename;
 my $path_curf = File::Spec->rel2abs(__FILE__);
@@ -21,9 +22,10 @@ my %hash = (
 	'AGENT:  Input the ServerIP'		=> '192.168.6.1',
 	'AGENT:  Input the port'		=> 1075,
 	'AGENT:  Input the WEBSERVER'		=> 'github.com',
+	'AGENT:  Input the WEBPORT'		=> 1075,
 	'AGENT:  Input the Site'		=> 'test',
 	'AGENT:  Input the LOOPADDRESS'		=> '127.0.0.1',
-	'AGENT:  Input the ISPROXY'		=> 'NO',
+	'AGENT:  Input the ROLE'		=> 'DIRECT|INDIRECT|PROXY',
 	'AGENT:	 Input the Parent'		=> '192.168.6.1'
 	);
 LOOP:
