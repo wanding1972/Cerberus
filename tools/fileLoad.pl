@@ -37,44 +37,7 @@ sub loadHost{
 
 sub updateDeploy{
         my ($stat,$site,$ip) = @_;
-        my ($dbh,$sth,$res,$sql);
-        $dbh =DBI->connect("dbi:Oracle:$main::DBNAME",decode_base64($main::DBUSER),decode_base64($main::DBPASS));
-        if (!defined $dbh ){
-                print "connect db failed\n";
-                exit(-1);
-        }
-        $sql = "update HOSTSTAT set checkstat=? where siteid=? and ipaddress=?";
-        $sth = $dbh->prepare ($sql);
-        if ( !defined $sth ) {
-                        print "Cannot prepare statement for $0 <$sql>: $DBI::errstr\n";
-                        exit(-1);
-        }
-        $res = $sth->execute($stat,$site,$ip);
-        $sth->finish();
-        $dbh->disconnect();
-}
-
-sub genConfig{
-	if(open(FILE,">$path/config")){
-	foreach my $key (keys %hostInfos){
-		my $ref = $hostInfos{$key};
-        	my ($user,$pass,$rootPass,$port,$role,$hostName) = @$ref;
-		my ($node,$ipaddress) = split /-/,$key;
-		my $configHost = "";
-		$hostName = lc($hostName);
-		$configHost .= "Host $hostName\n";
-	        $configHost .= " User          $user\n";
-	       	$configHost .= " HostName      $ipaddress\n";
-       		$configHost .= " Port          $port\n";
-        	$configHost .= " IdentityFile  ~/.ssh/id_rsa\n";
-           	if($role eq 'indirect'){
-               		my $proxy = lc($proxyName{$node});
-                	$configHost .= "    ProxyCommand  ssh $proxy -q -W %h:%p \n";
-          	}	
-		print FILE $configHost;
-	}
-		close(FILE);
-	}
+	print "($stat,$site,$ip) \n";
 }
 
 1

@@ -8,12 +8,18 @@ use File::Spec;
 use MIME::Base64;
 my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+require "$path/para.conf";
 require "$path/deploy/min_funcs.pl";
-require "$path/fileLoad.pl";
+if($main::DATATYPE eq 'FILE'){
+	require "$path/fileLoad.pl";
+}elsif($main::DATATYPE eq 'ORACLE'){
+	require "$path/oraLoad.pl";
+}
 
 #deploy.pl node ip user pass port rootPass proxy
 if(scalar @ARGV<2){
-	print "Usage: deploying.pl prog|unprog|check sitecode [ip] [noforce]\n";
+	print "Usage: deploying.pl prog|unprog|check sitecode [ip] \n";
 	exit 0;
 }
 my $action = $ARGV[0];
@@ -30,22 +36,17 @@ our %hostProxy = (
 );
 my %hostDirect = ();
 my %hostIndirect = ();
-loadHost();
-my %installed = loadInstalledHost();
 
+our %proxyName = ();    #used by genConfig()
+loadHost();
+genConfig();
 my $count = 0;
 foreach my $key (keys %hostProxy){
-	if(defined $ARGV[3] && $ARGV[3] eq 'noforce'){
-		next if(exists $installed{$key});
-	}
 	my $key1= "$key-$hostProxy{$key}";
 	$hostDirect{$key1} = $hostInfos{$key1};	
 }
 foreach my $key (keys %hostInfos){
 	next if(exists $hostDirect{$key});
-	if(defined $ARGV[3] && $ARGV[3] eq 'noforce'){
-		next if(exists $installed{$key});
-	}
 	my($node,$ip) = split /-/,$key;
 	my $isDirect = $hostInfos{$key}->[4];
 	if($isDirect eq 'direct'){
@@ -141,8 +142,7 @@ sub doWork{
 		$stat='checked';
 	}
 	$pass = decode_base64($pass);
-	#updateDeploy($stat,$node,$ip);
-	print "($stat,$node,$ip) \n";
+	updateDeploy($stat,$node,$ip);
         return $ret;
 }
 
@@ -161,7 +161,9 @@ sub deployDirect{
 		execCMD($cmd);
 	}
 	if(exists $hostProxy{$node}){
+		genHostLst($ip);
 		$cmd = "$path/deploy/min_deploy.pl $action $ip:$port $user '$pass' $node '$rootPass' PROXY";
+		`rm $path/deploy/min_$ip.lst`;
 	}else{
 		$cmd = "$path/deploy/min_deploy.pl $action $ip:$port $user '$pass' $node '$rootPass' DIRECT";
 	}
@@ -205,25 +207,53 @@ sub deployIndirect{
         return $retVal;
 }
 
-sub loadInstalledHost{
-	my %hash = ();
-	if(open(FILE,"$path/../data/host.status")){
-		my @lines = <FILE>;
-		foreach my $line (@lines){
-			chomp($line);
-			my (@tokens) = split /,/,$line;
-			my ($node,$ip,$installed,$version) = ($tokens[0],$tokens[1],$tokens[2],$tokens[3]);
-			if($installed eq 'ONLINE' && $version == 32){
-				$hash{"$node-$ip"} = 1;
-			}
-		}
-		close(FILE);
-	}
-	return %hash;
-}
-
 sub makePack{
 	chdir("$path/..");
 	`tar cvf min_agent.tar agent`;
 	`mv min_agent.tar $path/deploy/`;
+}
+
+#generate .ssh/config
+sub genConfig{
+        if(open(FILE,">$path/config")){
+        foreach my $key (keys %hostInfos){
+                my $ref = $hostInfos{$key};
+                my ($user,$pass,$rootPass,$port,$role,$hostName) = @$ref;
+                my ($node,$ipaddress) = split /-/,$key;
+                my $configHost = "";
+                $hostName = lc($hostName);
+                $configHost .= "Host $hostName\n";
+                $configHost .= " User          $user\n";
+                $configHost .= " HostName      $ipaddress\n";
+                $configHost .= " Port          $port\n";
+                $configHost .= " IdentityFile  ~/.ssh/id_rsa\n";
+                if($role eq 'indirect'){
+                        my $proxy = lc($proxyName{$node});
+                        $configHost .= "    ProxyCommand  ssh $proxy -q -W %h:%p \n";
+                }
+                print FILE $configHost;
+        }
+                close(FILE);
+        }
+}
+
+sub genHostLst{
+	my ($ip) = @_;
+	my $fileName = "$path/deploy/min_$ip.lst";
+	if(open(LSTFILE,">$fileName")){
+	   foreach my $node (keys %hostProxy){
+		my $host = $hostProxy{$node};
+		if($ip eq $host){
+			foreach my $key (keys %hostInfos){
+				if($key =~ /$node/){
+					my ($node1,$ipaddress) = split /-/,$key;
+					next if($ipaddress eq $ip);
+					print LSTFILE "$ipaddress\n";
+					print "$ipaddress\n";
+				}
+			}
+		}
+	   }
+	   close(LSTFILE);
+	}
 }

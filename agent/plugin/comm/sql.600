@@ -1,0 +1,143 @@
+#!/usr/bin/perl
+use strict; 
+use warnings;
+use Env;
+use DBI;
+use File::Spec;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+my $home = "$path/../../..";
+
+require "$path/../../conf/local.conf";
+require "$path/../../conf/global.conf";
+require "$path/../../lib/funcs.pl";
+require "$path/../../lib/service.pl";
+$ENV{'LC_ALL'} = 'C';
+if( -e "$path/../../conf/sql.rule"){
+	require  "$path/../../conf/sql.rule";
+}
+my $app = "sql";
+
+my $hostID = "$main::SITE-$main::LOOPADDRESS";
+if(!exists $main::hostItems{$hostID}){
+	print "no sqls need execute in this host'n";
+	exit 0;
+}
+my ($dbUser,$dbPass,$dbStr) = loadDBConfig();
+
+my @eventLst = ();
+foreach my $servicename (keys(%main::sqls)){
+	next if ($main::hostItems{$hostID} !~ /$servicename/);
+        my $hashref = $main::sqls{$servicename};
+        my $paraname;
+        my $checkResult='';
+        my $index = "";
+        #iterate the check item of each service
+        foreach $paraname (keys(%$hashref)){
+                my $arrayref = $$hashref{$paraname};
+                my $value1 = $$arrayref[0];
+                my $value2 = $$arrayref[1];
+                my $retval = 'ok';
+                $index = $paraname;
+         	$retval = paraChk($paraname,$value1,$value2);
+		next if($paraname !~ /sql_text|tcp|http|exec/);
+                if(($retval ne 'ok')&&($retval ne 'failed')){
+                        $checkResult = $paraname.': '.$retval;
+                        last;
+                }
+        }
+        if($checkResult ne ''){
+		info("serviceFault,$app.$index,$servicename,$checkResult");
+                push(@eventLst,"serviceFault,$app.$index,$servicename,$checkResult");
+        }else{
+                my $cmd = "$path/../../../run/tmp/$servicename".'.srv';
+                `touch $cmd`;
+                info ("service: $servicename is OK");
+        }
+}
+
+my $dirData = "$path/../../../run/queue/evt1";
+my $eventFile = "$dirData/eventSql.".curtime().".dat";
+if($#eventLst >=0){
+        if(open(FILE,">$eventFile")){
+                 foreach my $item (@eventLst){
+                       print FILE  "$item\n";
+                }
+                close(FILE);
+        }
+}
+my $pidfile = "$path/../../../run/tmp/$app.pid";
+`echo $$ > $pidfile`;
+
+
+sub chkSQL{
+	my ($sql,$expr) = @_;
+	my $table='';
+	if ($sql =~ /from(.+)where/i){
+		$table = $1;
+	}
+	my $dbh = DBI->connect("dbi:Oracle:$dbStr",$dbUser,$dbPass );
+	my $sth = $dbh->prepare($sql);
+	if ( !defined $sth ) {
+		my $Detail = "Cannot prepare statement for $0 <$sql>: $DBI::errstr\n";
+		exit(-1);
+	}
+	my $rv = $sth->execute();
+	my $count = 0;
+	while(my $ref = $sth->fetchrow_arrayref()){
+		$count = $ref->[0];
+	}
+	$sth->finish();
+	$dbh->disconnect();
+	my $expression = "$count $expr";
+	if(eval($expression)){
+		return "SQL_RET_FAIL: $table $expression";
+	}else{
+		return "ok";
+	}
+}
+
+sub paraChk{
+        my($paraname,$value1,$value2) = @_;
+        my $retval = "ok";
+        SWITCH:{
+                if($paraname =~ /tcp_connect/){
+                                $retval = chkTCP($value1,$value2);
+                                last SWITCH;
+                }       
+                if($paraname =~ /http_connect/){
+                                $retval = chkHTTP($value1,$value2);
+                                last SWITCH;
+                }
+                if($paraname =~ /sql_text/){
+                                $retval = chkSQL($value1,$value2);
+                                last SWITCH;
+                }
+                if($paraname =~ /exec_cmd/){
+                                $retval = chkCmd($value1,$value2);
+                                last SWITCH;
+                }
+                DEFAULT:{
+                        last SWITCH;
+                }
+        }
+        return $retval;
+}
+
+sub loadDBConfig{
+        my $content = "";
+        if(open(FILE,"/slview/nms/cfg/shconfig.xml")){
+                while(<FILE>){
+                        chomp($_);
+                        $content .= $_;
+                }
+                close(FILE);
+        }
+        $content =~ /DBUserName<\/ParaName>[^><]*<ParaValue>(.*?)<\/ParaValue/is;
+        my $dbUser = "$1";
+        $content =~ /DBPasswd<\/ParaName>[^><]*<ParaValue>(.*?)<\/ParaValue/is;
+        my $dbPass = "$1";
+        $content =~ /DBString<\/ParaName>[^><]*<ParaValue>(.*?)<\/ParaValue/is;
+        my $dbStr = "$1";
+        return ($dbUser, $dbPass, $dbStr);
+}
