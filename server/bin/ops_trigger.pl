@@ -81,7 +81,6 @@ sub triggerClean{
 				 my $end   = curtime($ref->[8]);
 				 my $detail     = "$ref->[3],$ref->[4],$ref->[5], occur $times, start from $start, lasttime  occur $end";
 				 if(exists $main::mails{$site}){
-				    $receivers = $main::mails{$site};
 					$receivers .= $main::mails{$site}.','. $main::mails{"ALL"};	
 				 }else{
 				    $receivers = $main::mails{"ALL"};
