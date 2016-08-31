@@ -43,12 +43,18 @@ genConfig();
 my $count = 0;
 foreach my $key (keys %hostProxy){
 	my $key1= "$key-$hostProxy{$key}";
+        next if($key ne $ARGV[1] && $ARGV[1] ne 'ALL');
 	$hostDirect{$key1} = $hostInfos{$key1};	
+	$count++;
 }
 foreach my $key (keys %hostInfos){
 	next if(exists $hostDirect{$key});
 	my($node,$ip) = split /-/,$key;
 	my $isDirect = $hostInfos{$key}->[4];
+        next if($node ne $ARGV[1] && $ARGV[1] ne 'ALL');
+	if (defined $ARGV[2]){
+		next if( $ARGV[2] ne $ip );
+	}
 	if($isDirect eq 'direct'){
 		$hostDirect{$key} = $hostInfos{$key};	
 	}else{
@@ -58,8 +64,8 @@ foreach my $key (keys %hostInfos){
 	$count++;
 }
 info("host number: $count");
+exit if($count == 0);
 makePack();
-
 if($action eq 'check'){
 	doMulti(\%hostDirect,1);
 	doMulti(\%hostIndirect,0);
@@ -163,12 +169,14 @@ sub deployDirect{
 	if(exists $hostProxy{$node}){
 		genHostLst($ip);
 		$cmd = "$path/deploy/min_deploy.pl $action $ip:$port $user '$pass' $node '$rootPass' PROXY";
-		`rm $path/deploy/min_$ip.lst`;
 	}else{
 		$cmd = "$path/deploy/min_deploy.pl $action $ip:$port $user '$pass' $node '$rootPass' DIRECT";
 	}
 	info($cmd);
 	my @lines = execCMD($cmd);    
+	if( -e "$path/deploy/min_$ip.lst"){
+		#`rm $path/deploy/min_$ip.lst`;
+	}
 	foreach my $line (@lines){
 		if($line =~ /return value=(\d)/){
 			$retDeploy = $1;
@@ -239,6 +247,7 @@ sub genConfig{
 
 sub genHostLst{
 	my ($ip) = @_;
+	my %hash = readHash("$path/../data/host.map");
 	my $fileName = "$path/deploy/min_$ip.lst";
 	if(open(LSTFILE,">$fileName")){
 	   foreach my $node (keys %hostProxy){
@@ -248,8 +257,11 @@ sub genHostLst{
 				if($key =~ /$node/){
 					my ($node1,$ipaddress) = split /-/,$key;
 					next if($ipaddress eq $ip);
-					print LSTFILE "$ipaddress\n";
-					print "$ipaddress\n";
+					my $hostName = $ipaddress;
+					if(exists $hash{$key}){
+						$hostName = $hash{$key};
+					}
+					print LSTFILE "$ipaddress  $hostName  $hostInfos{$key}->[3]\n";
 				}
 			}
 		}

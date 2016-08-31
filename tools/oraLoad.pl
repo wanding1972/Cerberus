@@ -11,16 +11,14 @@ sub loadHost{
                 print $m_errmsg;
                 exit(-1);
         }
-                $sql = "select h.nodecode,ipaddress,username,decrypt_data(password,'beijingtiananmen'),decrypt_data(rocommunity,'beijingtiananmen'),port,clusterstatus,hostname from host h,node n where n.nodecode=h.nodecode  and n.nodefullcode like :1 and (h.ipaddress like :2 or h.clusterstatus ='proxy')";
+                $sql = "select h.nodecode,ipaddress,username,decrypt_data(password,'beijingtiananmen'),decrypt_data(rocommunity,'beijingtiananmen'),port,clusterstatus,hostname from host h,node n where n.nodecode=h.nodecode";
                 $sth = $dbh->prepare ($sql);
                 if ( !defined $sth ) {
                         my $Detail = "Cannot prepare statement for $0 <$sql>: $DBI::errstr\n";
                         print $Detail;
                         exit(-1);
                 }
-                my $fullCode = '%'.$ARGV[1].'%';
-		my $ipreg  = '%'.$ARGV[2].'%';
-                $res = $sth->execute($fullCode,$ipreg);
+                $res = $sth->execute();
                 my ($node,$ipaddress,$key);
                 while(my $ref = $sth->fetchrow_arrayref()){
                         $node = $ref->[0];

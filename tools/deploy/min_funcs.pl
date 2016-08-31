@@ -82,7 +82,7 @@ sub login{
 					debug($sess->match());
 					debug("send $passwd");
                                                 exp_continue;
-                                                                        }
+                                    }
                         ],
                         -re => $PROMPT
          );
@@ -294,5 +294,20 @@ sub killAll{
     }
 }
 
+sub readHash{
+        my ($file) = @_;
+        my %hash = ();
+        if(open(FILE,$file)){
+                my @lines = <FILE>;
+                foreach my $line (@lines){
+                        chomp($line);
+                        next if($line =~ /^#/);
+                        my @tokens = split /=/,$line;
+                        $hash{$tokens[0]} = $tokens[1];
+                }
+                close(FILE);
+        }
+        return %hash;
+}
 
 1;

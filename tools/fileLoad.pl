@@ -11,7 +11,6 @@ sub loadHost{
                         next if($line =~ /^#/);
                         next if($line =~ /^$/);
                         my ($ip,$node,$user,$pass,$rootPass,$port,$connected) = split /,+/,$line;
-                        next if($node ne $ARGV[1] && $ARGV[1] ne 'ALL');
                         my $key = $node.'-'.$ip;
                         if($line =~ /proxy/i){
                                 $hostProxy{$node} = $ip;
@@ -22,13 +21,7 @@ sub loadHost{
                                 $connected = 'direct';
                         	$hostInfos{"$key"}=[$user,$pass,$rootPass,$port,$connected];
                         }else{
-				if (defined $ARGV[2]){
-					if( $ARGV[2] eq $ip){
-                        			$hostInfos{"$key"}=[$user,$pass,$rootPass,$port,$connected];
-					}
-				}else{
-                        		$hostInfos{"$key"}=[$user,$pass,$rootPass,$port,$connected];
-				}
+                        	$hostInfos{"$key"}=[$user,$pass,$rootPass,$port,$connected];
 			}
                 }
                 close(FILE);

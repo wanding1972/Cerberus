@@ -1,0 +1,76 @@
+#!/usr/bin/perl
+use strict;
+use File::Spec;
+use File::Basename;
+use Env;
+use Expect;
+my $path_curf = File::Spec->rel2abs(__FILE__);
+my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
+
+$ENV{'LC_ALL'} = 'C';
+require "$path/../../conf/local.conf";
+require "$path/../../lib/funcs.pl";
+exit if($main::ROLE eq 'INDIRECT');
+
+my $app = "ssh";
+
+dupProcess($file);
+
+my @eventLst = ();
+my $fileName = "$path/../../conf/host.lst";
+if(open(FILE,$fileName)){
+        my @lines = <FILE>;
+        foreach my $line (@lines){
+                next if($line =~/^#/);
+                chomp($line);
+                my @tokens = split /[ \t,]+/,$line;
+                my $ip = $tokens[0];
+                my $name = $tokens[1];
+                my $port = defined $tokens[2]? $tokens[2]:22;
+		my $ret = testSSH($ip,$port,'slview');
+		if($ret eq 'failed'){
+			push(@eventLst,"sshFailed,$app.isAlived,$ip-$name,$ret");
+		}
+        }
+        close(FILE);
+}else{
+	print "$fileName not existed\n";
+}
+my $dirData = "$path/../../../run/queue/evt1";
+my $eventFile = "$dirData/eventService.".curtime().".dat";
+if($#eventLst >=0){
+        if(open(FILE,">$eventFile")){
+                 foreach my $item (@eventLst){
+                       print FILE  "$item\n";
+                }
+                close(FILE);
+        }
+}
+my $file = "$path/../../../run/tmp/$app.pid";
+`echo $$ > $file`;
+
+
+sub testSSH{
+	my ($ip,$port,$user)=@_;
+	my $PROMPT = '[\#\$\>\%\]]\s*$';
+	my $regPass = "[Pp]assword:";
+	my $sess=new Expect;
+	my $command = "ssh -o 'StrictHostKeyChecking no' -o ConnectTimeout=60  -l $user -p $port $ip";
+	$sess = Expect->spawn( $command );
+	if(! $sess){
+		print "Couldn't spawn ssh,$!\n";
+	}
+
+	$sess->expect(50,
+				[
+					qr/$regPass/i,
+					sub { }
+				 ],  -re => $PROMPT
+	);
+	my $match=$sess->match();
+	if($match =~ /$regPass/) {
+		return "ok";
+	}else{
+		return 'failed';
+	}
+}

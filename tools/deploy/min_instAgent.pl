@@ -22,6 +22,9 @@ if($action eq 'deploy'){
 	startAgent();
 	regCron("$home/agent/bin/miops_watchdog.pl");
 	checkAgent();
+	if(-e "/tmp/min_$ip.lst"){
+		`mv /tmp/min_$ip.lst  $home/agent/conf/host.lst`;
+	}
 }elsif($action eq 'undeploy'){
 	killAgent();
 	unregCron("$home/agent/bin/watchdog.pl");
@@ -92,41 +95,41 @@ sub killAgent{
 }
 
 sub uninstall{
-	my $loginUser = loginUser();
-	my $procUser = "";
-	my @lines = lsps();
-	foreach my $line (@lines) {
+my $loginUser = loginUser();
+my $procUser = "";
+    my @lines = lsps();
+foreach my $line (@lines) {
         chomp($line);
-        if($line =~ /miops/){
+        if($line =~ /zy_agentctl/){
                   $line=~s/^\s*|\s*$//g;
                   my @tokens = split / +/,$line;
                   $procUser = $tokens[0];
         }
-	}
+}
 
-	if($procUser ne '' && $procUser ne $loginUser){
-       		 print "the proceed miops's owner $procUser is diffrent from $loginUser\n";
-	        exit 0;
-	}
+if($procUser ne '' && $procUser ne $loginUser){
+        print "the proceed zy_agent's owner $procUser is diffrent from $loginUser\n";
+        exit 0;
+}
 
-	my $PROBE_BASE;
-	if($loginUser eq 'root'){
-	        $PROBE_BASE="/opt/testprobe";
-	}else{
-       		 $PROBE_BASE="/oracle/lsyhms";
-	}
-	my $PROBE_HOME = $PROBE_BASE."/agent";
+my $PROBE_BASE;
+if($loginUser eq 'root'){
+        $PROBE_BASE="/opt/testprobe";
+}else{
+        $PROBE_BASE="/oracle/lsyhms";
+}
+my $PROBE_HOME = $PROBE_BASE."/agent";
 
-	my ($dir,$cmd);
-	$dir = $PROBE_BASE;
-	debug("... begin to install $dir");
+my ($dir,$cmd);
+$dir = $PROBE_BASE;
+debug("... begin to install $dir");
 
-	if(!((-e $dir)&&(-d $dir))){
-       		 $cmd = "mkdir -p $dir";
-	        execCMD($cmd);
-	}else{
-       		 $cmd = "rm -r $PROBE_HOME/ext-lib/*";
-	        execCMD($cmd);
-	}
+if(!((-e $dir)&&(-d $dir))){
+        $cmd = "mkdir -p $dir";
+        execCMD($cmd);
+}else{
+        $cmd = "rm -r $PROBE_HOME/ext-lib/*";
+        execCMD($cmd);
+}
 }
 

@@ -274,7 +274,6 @@ sub loadLocalConf{
 	return ($site,$ip,$server,$webserver,$webport);
 }
 
-			print "---------- $REG_TIMEOUT";
 sub hasService{
         my ($service) = @_;
         my %hash = readHash("$path/../../run/cfg/service.reg");
