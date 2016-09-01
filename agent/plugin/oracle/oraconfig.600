@@ -51,6 +51,26 @@ foreach my $line (@lines){
         my (@tokens) = split /[\t ]+/,$line;
         unshift(@perf,[$app,"ind_fails",'-',$tokens[1]]);
 }
+
+$sql = "select 'TD',(b-a)/1024/1024 free ,a/b*100 ratio from (
+        select ((select (nvl(sum(bytes), 0))
+           from dba_undo_extents
+          where tablespace_name = (select value from v\\\$parameter where name = 'undo_tablespace')
+            and status in ('ACTIVE', 'UNEXPIRED')) ) a ,
+       (select sum(bytes)
+          from dba_data_files
+         where tablespace_name = (select value from v\\\$parameter where name = 'undo_tablespace')) b
+  from dual);";
+@lines = execSQL($sql);
+foreach my $line (@lines){
+        next if($line !~ /TD/);
+        next if($line =~ /COUNT|SQL/);
+        chomp($line);                                                                                                               
+        my (@tokens) = split /[\t ]+/,$line;
+        unshift(@perf,[$app,"ts_ratio",'UNDOTBS',$tokens[2]]);
+        unshift(@perf,[$app,"ts_free",'UNDOTBS',$tokens[1]]);
+}
+
 my $file = "$path/../../../run/data/perf/$app.".curtime().".dat";
 writeArray($file,\@perf);
 my $dstDir = "$path/../../../run/queue/current/";
