@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use Expect;
+use Env;
 use Socket;
 use DBI;
 use File::Spec;
@@ -19,7 +20,7 @@ if($main::DATATYPE eq 'FILE'){
 
 #deploy.pl node ip user pass port rootPass proxy
 if(scalar @ARGV<2){
-	print "Usage: deploying.pl prog|unprog|check sitecode [ip] \n";
+	print "Usage: deploying.pl prog|unprog|check|ssh sitecode [ip] \n";
 	exit 0;
 }
 my $action = $ARGV[0];
@@ -37,9 +38,7 @@ our %hostProxy = (
 my %hostDirect = ();
 my %hostIndirect = ();
 
-our %proxyName = ();    #used by genConfig()
 loadHost();
-genConfig();
 my $count = 0;
 foreach my $key (keys %hostProxy){
 	my $key1= "$key-$hostProxy{$key}";
@@ -75,6 +74,12 @@ if($action eq 'check'){
 }elsif($action eq 'prog'){
 	doMulti(\%hostDirect,1);
 	doMulti(\%hostIndirect,0);
+}elsif($action eq 'ssh'){
+	`cp $HOME/.ssh/id_rsa.pub $path/deploy/min_id_rsa.pub`;
+	genSSHConfig();
+	exit;
+        doMulti(\%hostDirect,1);
+        doMulti(\%hostIndirect,0);
 }
 
 `rm $path/deploy/min_agent.tar`;
@@ -167,7 +172,7 @@ sub deployDirect{
 		execCMD($cmd);
 	}
 	if(exists $hostProxy{$node}){
-		genHostLst($ip);
+		genSSHLst($ip);
 		$cmd = "$path/deploy/min_deploy.pl $action $ip:$port $user '$pass' $node '$rootPass' PROXY";
 	}else{
 		$cmd = "$path/deploy/min_deploy.pl $action $ip:$port $user '$pass' $node '$rootPass' DIRECT";
@@ -175,7 +180,7 @@ sub deployDirect{
 	info($cmd);
 	my @lines = execCMD($cmd);    
 	if( -e "$path/deploy/min_$ip.lst"){
-		#`rm $path/deploy/min_$ip.lst`;
+		`rm $path/deploy/min_$ip.lst`;
 	}
 	foreach my $line (@lines){
 		if($line =~ /return value=(\d)/){
@@ -222,22 +227,34 @@ sub makePack{
 }
 
 #generate .ssh/config
-sub genConfig{
-        if(open(FILE,">$path/config")){
+sub genSSHConfig{
+	my $dstNode = $ARGV[1];
+        if(open(FILE,">$HOME/.ssh/$dstNode.config")){
         foreach my $key (keys %hostInfos){
                 my $ref = $hostInfos{$key};
                 my ($user,$pass,$rootPass,$port,$role,$hostName) = @$ref;
                 my ($node,$ipaddress) = split /-/,$key;
+		next if($node ne $dstNode);
+		if(defined $hostName){
+                	$hostName = lc($hostName);
+		}else{
+			$hostName = $ipaddress;
+		}
                 my $configHost = "";
-                $hostName = lc($hostName);
                 $configHost .= "Host $hostName\n";
                 $configHost .= " User          $user\n";
                 $configHost .= " HostName      $ipaddress\n";
                 $configHost .= " Port          $port\n";
                 $configHost .= " IdentityFile  ~/.ssh/id_rsa\n";
                 if($role eq 'indirect'){
-                        my $proxy = lc($proxyName{$node});
-                        $configHost .= "    ProxyCommand  ssh $proxy -q -W %h:%p \n";
+                        my $proxy = lc($hostProxy{$node});
+			my $keyProxy = "$node-$proxy";
+			my $refProxy = $hostInfos{$keyProxy};
+			if(defined $refProxy->[3]){
+                        	$configHost .= "    ProxyCommand  ssh -p $refProxy->[3]  $proxy -q -W %h:%p \n";
+			}else{	        	
+                        	$configHost .= "    ProxyCommand  ssh $proxy -q -W %h:%p \n";
+			}
                 }
                 print FILE $configHost;
         }
@@ -245,7 +262,7 @@ sub genConfig{
         }
 }
 
-sub genHostLst{
+sub genSSHLst{
 	my ($ip) = @_;
 	my %hash = readHash("$path/../data/host.map");
 	my $fileName = "$path/deploy/min_$ip.lst";

@@ -20,6 +20,7 @@ if(scalar @ARGV <4){
         print "Example: $0 prog 192.168.6.131:2002  user slpass SITEID rootPass\n";
         print "Example: $0 unprog 192.168.6.131:2002  user slpass rootPass\n";
         print "Example: $0 check  192.168.6.131:2002  user slpass rootPass\n";
+        print "Example: $0 ssh  192.168.6.131:2002  user slpass rootPass\n";
         exit 0;
 }
 my $action = $ARGV[0];
@@ -48,6 +49,8 @@ if($action eq 'unprog' ){
 		my $status = check($host,$user,$pass,$rootPass,$port);
 		$retVal = $status;
 }elsif($action eq 'prog' ){
+	$retVal = deploy($node,$host,$user,$pass,$rootPass,$port);
+}else{
 	$retVal = deploy($node,$host,$user,$pass,$rootPass,$port);
 }
 
@@ -122,7 +125,9 @@ sub deploy{
 		#测试安装成功
 		$out = "";
 		my $cmd = "/tmp/min_instAgent.pl deploy $node $host $role\r";
-		#$cmd = "/tmp/min_instPubKey.pl\r";
+		if($action eq 'ssh'){
+			$cmd = "/tmp/min_instPubKey.pl\r";
+		}
 		$sess->send($cmd);
 		$sess->expect(10,'-re',$PROMPT);
 		$out = $sess->before();

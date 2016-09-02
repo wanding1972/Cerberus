@@ -38,7 +38,6 @@ sub loadHost{
                         }else{
 				if($connected eq 'proxy'){
                         		$hostProxy{$node}=$ipaddress;
-					$main::proxyName{$node} = $ref->[7];
 				}
                                 $connected = 'direct';
 				

@@ -1,7 +1,6 @@
 use File::Spec;
 my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
-my %proxyName = ();
 
 sub loadHost{
         if(open(FILE,"$path/../data/host.csv")){
