@@ -311,7 +311,5 @@ sub decodePath{
 	}
 }
 
-my $ret=chkCron('aslview','ls');
-print "$ret\n";
 
 1;

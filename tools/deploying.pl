@@ -77,7 +77,6 @@ if($action eq 'check'){
 }elsif($action eq 'ssh'){
 	`cp $HOME/.ssh/id_rsa.pub $path/deploy/min_id_rsa.pub`;
 	genSSHConfig();
-	exit;
         doMulti(\%hostDirect,1);
         doMulti(\%hostIndirect,0);
 }
@@ -251,9 +250,9 @@ sub genSSHConfig{
 			my $keyProxy = "$node-$proxy";
 			my $refProxy = $hostInfos{$keyProxy};
 			if(defined $refProxy->[3]){
-                        	$configHost .= "    ProxyCommand  ssh -p $refProxy->[3]  $proxy -q -W %h:%p \n";
+                        	$configHost .= "    ProxyCommand  ssh -p $refProxy->[3]  $refProxy->[0]\@$proxy -q -W %h:%p \n";
 			}else{	        	
-                        	$configHost .= "    ProxyCommand  ssh $proxy -q -W %h:%p \n";
+                        	$configHost .= "    ProxyCommand  ssh $refProxy->[0]\@$proxy -q -W %h:%p \n";
 			}
                 }
                 print FILE $configHost;

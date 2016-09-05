@@ -2,12 +2,17 @@
 use strict;
 use Encode;
 use SendMail;
-
+use POSIX 'setsid';
 use File::Spec;
 my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 require "$path/min_funcs.pl";
 require "$path/../conf/server.conf";
+
+my $home = "$path/../..";
+my $app = "trigger";
+daemon($app,$home);
+
 my %eventCur = ();
 my @eventHis = ();
 my %mapHost = readHash("$path/../../data/host.map");
@@ -85,7 +90,7 @@ sub triggerClean{
 				 }else{
 				    $receivers = $main::mails{"ALL"};
 				 }
-				 mailReport('',$receivers,$subject,$detail);
+				 sendEvent('',$receivers,$subject,$detail);
                                  print curtime()." mail $receivers:  $subject : $detail  \n";
                 	    $eventCur{$key} = [$ref->[0],$ref->[1],$alarmType,$ref->[3],$ref->[4],$ref->[5],$times,$ref->[7],$ref->[8],'MAIL-'.$cleanTime];
 			    }
@@ -192,5 +197,45 @@ sub mailReport($$$$){
                 return(-1);
         }
         return 0;
+}
+
+sub weixinReport($$$$){
+	my ($RptName,$mailaddrs,$headers,$mailcontent)=@_;
+
+}
+sub sendEvent($$$$){
+	my ($rptName,$receivers,$subject,$detail) = @_;
+	mailReport('',$receivers,$subject,$detail);
+	weixinReport('',$receivers,$subject,$detail);	
+}
+
+sub daemon{
+        my ($app,$home) = @_;
+        my $pidFile = "$home/data/$app.pid";
+        my $logFile = "$home/data/$app.log";
+        defined (my $pid = fork()) or die "Can't fork: $!\n";
+        if ($pid) {     #¸¸½ø³ÌÍË³ö
+                info("daemon $app started. pid: $pid");
+                if(open(FILE,">$pidFile")){
+                                print FILE $pid;
+                                close(FILE);
+                }
+                exit(0);
+        }else{
+                POSIX::setsid() or die "Can't start a new session: $!\n";
+                chdir '/';
+                if ( -t STDIN ) {
+                                close STDIN;
+                                open STDIN, '/dev/null' or die "Can't reopen STDIN to /dev/null: $!\n";
+                }
+                if ( -t STDOUT ) {
+                                close STDOUT;
+                                open STDOUT, '>', "$logFile" or die "Can't reopen STDOUT to $logFile: $!\n";
+                }
+                if ( -t STDERR ) {
+                                close STDERR;
+                                open STDERR, '>', "$logFile" or die "Can't reopen STDERR to $logFile: $!\n";
+                }
+    }
 }
 

@@ -3,7 +3,7 @@ my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 
 sub loadHost{
-        if(open(FILE,"$path/../data/host.csv")){
+        if(open(FILE,"$main::DATADIR/host.csv")){
                 my @lines = <FILE>;
                 foreach my $line (@lines){
                         chomp($line);
