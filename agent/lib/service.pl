@@ -241,7 +241,7 @@ sub chkHTTP{
 		alarm 0;
 	};
 	alarm 0;
-	if(!defined $buf){ return 'failed';}
+	if(!defined $buf){ return "failed to connect $addr:$port";}
         if($buf =~ /$pattern/){
                 return 'ok';
         }else{

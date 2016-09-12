@@ -31,4 +31,6 @@ our %cleans = (
 our %mails = (
 	'ALL' => 'foo2322@gmail.com',
 	);
-
+our %MicroMsgs = (
+	'ALL' => 'wfoo'
+	);

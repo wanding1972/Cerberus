@@ -8,6 +8,7 @@
 use strict;
 use File::Spec;
 use Socket;
+use Env;
 my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 
@@ -16,7 +17,12 @@ require "$path/../lib/funcs.pl";
 
 dupProcess($file);
 my ($site,$loopaddress,$server,$webServer,$webPort)=loadLocalConf();
-
+if(chkFileSystem() != 0){
+	my $body = "FSReadOnly,sender.touch,$HOME,FileSystem readonly touch $HOME/miops/run/tmp/sender.tmp failed";
+	sendMsg("event",$body);
+	print "$body \n";
+	exit;
+}
 my @dirs = ("event","perf","config","state","log");
 foreach my $dir(@dirs){
 	doDir($dir);
@@ -57,4 +63,9 @@ sub doDir{
 			unlink($path);
 		}	
 	}	
+}
+
+sub chkFileSystem{
+	`touch $HOME/miops/run/tmp/sender.tmp`;
+	return $?;
 }

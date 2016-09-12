@@ -90,7 +90,8 @@ sub triggerClean{
 				 }else{
 				    $receivers = $main::mails{"ALL"};
 				 }
-				 sendEvent('',$receivers,$subject,$detail);
+				 mailReport('',$receivers,$subject,$detail);
+				 sendMicroMsg($site,$ip,$alarmType,$hostname,$ref->[4]);
                                  print curtime()." mail $receivers:  $subject : $detail  \n";
                 	    $eventCur{$key} = [$ref->[0],$ref->[1],$alarmType,$ref->[3],$ref->[4],$ref->[5],$times,$ref->[7],$ref->[8],'MAIL-'.$cleanTime];
 			    }
@@ -199,14 +200,21 @@ sub mailReport($$$$){
         return 0;
 }
 
-sub weixinReport($$$$){
-	my ($RptName,$mailaddrs,$headers,$mailcontent)=@_;
-
-}
-sub sendEvent($$$$){
-	my ($rptName,$receivers,$subject,$detail) = @_;
-	mailReport('',$receivers,$subject,$detail);
-	weixinReport('',$receivers,$subject,$detail);	
+sub sendMicroMsg($$$$$){
+	my ($site,$ip,$alarmType,$hostname,$fac) = @_;
+	if(exists $main::MicroMsgs{$site} || exists $main::MicroMsgs{'ALL'}){
+	      my $receivers = "";
+	   if(exists $main::MicroMsgs{$site}){
+              $receivers .= $main::MicroMsgs{$site}.'|'. $main::MicroMsgs{"ALL"};
+           }else{
+              $receivers = $main::MicroMsgs{"ALL"};
+           }
+	   my $msg = "$alarmType $hostname $fac";
+           my $body =  '{"userlist":"'.$receivers.'","site":"'.$site.'","ip":"'.$ip.'","msg":"'.$msg.'"}';
+           my $cmd  = "curl -XPOST http://192.168.6.229/miops/weixin/send.php  -d '$body'";
+           my $out  = `$cmd`;
+	   print "$body $out\n";	
+	}		
 }
 
 sub daemon{

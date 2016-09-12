@@ -245,7 +245,7 @@ sub genSSHConfig{
                 $configHost .= " HostName      $ipaddress\n";
                 $configHost .= " Port          $port\n";
                 $configHost .= " IdentityFile  ~/.ssh/id_rsa\n";
-                if($role eq 'indirect'){
+                if($role =~ /indirect/){
                         my $proxy = lc($hostProxy{$node});
 			my $keyProxy = "$node-$proxy";
 			my $refProxy = $hostInfos{$keyProxy};
