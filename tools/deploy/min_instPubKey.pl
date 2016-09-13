@@ -3,7 +3,9 @@
 use strict;
 use Env;
 my %hash = ();
-if(open(FILE,"$HOME/.ssh/authorized_keys")){
+my $authFile = "$HOME/.ssh/authorized_keys";
+my $authBak  = "$HOME/.ssh/authorized_keys.bk";
+if(open(FILE,"$authFile")){
         my @lines = <FILE>;
         foreach my $line (@lines){
                 chomp($line);
@@ -22,9 +24,8 @@ if(open(FILE,'/tmp/min_id_rsa.pub')){
         $hash{"$key"} = $tokens[2];
         close(FILE);
 }
-my $authFile = "$HOME/.ssh/authorized_keys";
 my $authTmp = "/tmp/authkeys";
-        `chmod 600 $authTmp`;
+`chmod 600 $authTmp`;
 if(open(FILE,">$authTmp")){
         foreach my $md5 (keys %hash){
                 print FILE "$md5 $hash{$md5}\n";
@@ -34,6 +35,7 @@ if(open(FILE,">$authTmp")){
 }
 my $size = -s "$authTmp";
 if($size >100){
+	`mv -f $authFile  $authBak`;
         `mv -f $authTmp   $authFile`;
         print "install return value=5\n";
 }else{

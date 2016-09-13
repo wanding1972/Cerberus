@@ -18,7 +18,7 @@ require "$path/../lib/funcs.pl";
 dupProcess($file);
 my ($site,$loopaddress,$server,$webServer,$webPort)=loadLocalConf();
 if(chkFileSystem() != 0){
-	my $body = "FSReadOnly,sender.touch,$HOME,FileSystem readonly touch $HOME/miops/run/tmp/sender.tmp failed";
+	my $body = "FSReadOnly,sender.touch,$HOME,FileSystem $HOME is readonly,because touch $HOME/miops/run/tmp/sender.tmp failed";
 	sendMsg("event",$body);
 	print "$body \n";
 	exit;
