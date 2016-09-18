@@ -216,7 +216,7 @@ sub chkCmd{
 sub chkHTTP{
         my ($url,$pattern) = @_;
         my ($addr,$port,$path,$dest,$sock,$con,$buf);  
-	if($url =~ /(\d+.\d+.\d+.\d+):(\d+)(\/[^ ]+)/){
+	if($url =~ /(\d+.\d+.\d+.\d+):(\d+)(\/[^ ]*)/){
 		$addr = $1;
 		$port = $2;
 		$path = $3;
