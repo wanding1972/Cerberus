@@ -17,7 +17,10 @@ dupProcess($file);
 my @eventLst = ();
 my $dirData = "$path/../../run/queue/evt1";
 my $eventFile = "$dirData/eventAvg.".curtime().".dat";
+my $regFile = "$path/../../run/tmp/regEvents.avgtrigger";
+my %regEvents = readHash($regFile);
 avgtrigger();
+writeHash(\%regEvents,$regFile);
 `echo $$ > $path/../../run/tmp/avgtrigger.pid`;
 
 
@@ -58,28 +61,28 @@ sub doFile{
 		shift(@tokens);
 		my($app,$index,$fac) = ($tokens[0],$tokens[1],$tokens[2]);
 		my $value = $tokens[3];
-		my $key = "$app.$index.$fac";
+		my @keys = ("$app.$index.$fac","$app.$index.*");
+		foreach my $key (@keys){
 		if(exists($para::rulesAvg{$key})){
 			my $itemsRef = $para::rulesAvg{$key};
 			foreach my $item (keys %$itemsRef){
+				my $alarmType = $$itemsRef{$item};	
 				my $expr = $value . $item;
 				if (eval($expr)){	
-					my $alarmType = $$itemsRef{$item};	
-					push(@eventLst,"$alarmType,$app.$index,$fac,$expr");
+					push(@eventLst,"$alarmType,$app.$index,$fac,$expr OCCUR");
+					if(!exists $regEvents{$key}){
+						$regEvents{$key} = 1;
+					}else{
+						$regEvents{$key} = $regEvents{$key} +1;
+					}
+				}else{
+					if( exists $regEvents{$key}){
+						push(@eventLst,"$alarmType,$app.$index,$fac,$expr RECOVER");
+						delete $regEvents{$key};
+					}
 				}
 			}
 		}
-		$key = "$app.$index.*";
-		if(exists($para::rulesAvg{$key})){
-			my $itemsRef = $para::rulesAvg{$key};
-			foreach my $item (keys %$itemsRef){
-				my $expr = $value .$item;
-				if (eval($expr)){	
-					my $alarmType = $$itemsRef{$item};
-					push(@eventLst,"$alarmType,$app.$index,$fac,$expr");
-				}
-			}
-			
 		}
 	}
 	close(FILE);

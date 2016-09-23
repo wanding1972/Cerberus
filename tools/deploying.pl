@@ -80,8 +80,13 @@ if($action eq 'check'){
         doMulti(\%hostDirect,1);
         doMulti(\%hostIndirect,0);
 }
-
 `rm $path/deploy/min_agent.tar`;
+foreach my $nodeip (keys %hostInfos){
+	my $ref = $hostInfos{$nodeip};
+	if(defined $ref->[5]){
+		print "$nodeip  $ref->[1] $ref->[5]\n";
+	}
+}
 
 # parallel deploy
 sub doMulti{
@@ -90,15 +95,23 @@ sub doMulti{
         my $MAXPROC=10;                 
         my $procNum = 0;              
         my @pids = ();
-
+	my %deployStats = ();
         foreach my $key (keys %hosts){
                 my $host = $hosts{$key};
                 my ($node,$ip) = split/-/,$key;
+		my $retPipe = pipe(READPIPE,WRITEPIPE);
                 my $pid = fork();
                 if($pid == 0){          
-                        doWork($node,$ip,$direct);
+			close(READPIPE);
+                        my $stat = doWork($node,$ip,$direct);
+			print WRITEPIPE "$stat,$node,$ip";
                         exit 0;
                 }else{         
+			close(WRITEPIPE);
+			my $line = <READPIPE>;
+			my @tokens = split /,/,$line;
+			my $ref = $hostInfos{"$tokens[1]-$tokens[2]"};
+			$ref->[5] = $tokens[0];
                         $procNum++;
                         push(@pids,$pid);
                 }
@@ -151,9 +164,7 @@ sub doWork{
 	}elsif($ret==5){
 		$stat='checked';
 	}
-	$pass = decode_base64($pass);
-	updateDeploy($stat,$node,$ip);
-        return $ret;
+        return $stat;
 }
 
 

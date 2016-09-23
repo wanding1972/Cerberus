@@ -8,13 +8,18 @@ my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 
 $ENV{'LC_ALL'} = 'C';
-require "$path/../../conf/local.conf";
+if ( -e "$path/../../conf/local.conf"){
+	require "$path/../../conf/local.conf";
+}
 require "$path/../../lib/funcs.pl";
 exit if($main::ROLE eq 'INDIRECT');
 
 my $app = "ssh";
 
 dupProcess($file);
+
+my $regFile = "$path/../../../run/tmp/regEvents.ssh";
+my %regEvents = readHash($regFile);
 
 my @eventLst = ();
 my $fileName = "$path/../../conf/host.lst";
@@ -28,8 +33,19 @@ if(open(FILE,$fileName)){
                 my $name = $tokens[1];
                 my $port = defined $tokens[2]? $tokens[2]:22;
 		my $ret = testSSH($ip,$port,'slview');
+		my $key = "sshFailed,$app.isAlived,$ip-$name";
 		if($ret eq 'failed'){
-			push(@eventLst,"sshFailed,$app.isAlived,$ip-$name,$ret");
+			push(@eventLst,"sshFailed,$app.isAlived,$ip-$name,$ret OCCUR");
+			if(!exists $regEvents{$key}){
+				$regEvents{$key} = 1;
+			}else{
+				$regEvents{$key} = $regEvents{$key} +1;
+			}
+		}else{
+			if( exists $regEvents{$key}){
+				push(@eventLst,"sshFailed,$app.isAlived,$ip-$name,$ret RECOVER");
+				delete $regEvents{$key};
+			}
 		}
         }
         close(FILE);
@@ -46,6 +62,7 @@ if($#eventLst >=0){
                 close(FILE);
         }
 }
+writeHash(\%regEvents,$regFile);
 my $file = "$path/../../../run/tmp/$app.pid";
 `echo $$ > $file`;
 

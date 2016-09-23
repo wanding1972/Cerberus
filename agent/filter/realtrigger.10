@@ -20,7 +20,12 @@ my @eventLst = ();
 my $dirData = "$path/../../run/queue/evt1";
 my $eventFile = "$dirData/event.".curtime().".dat";
 
+
+my $regFile = "$path/../../run/tmp/regEvents.realtrigger";
+my %regEvents = readHash($regFile);
 realtrigger();
+writeHash(\%regEvents,$regFile);
+
 `echo $$ > $path/../../run/tmp/realtrigger.pid`;
 
 sub realtrigger{
@@ -83,9 +88,20 @@ sub doFile{
                 }
                 foreach my $key (keys %rets){
                         if($rets{$key} == 1){
-                                push(@eventLst,"$alarmType,$key,$key,$summarys{$key}");
-                                print "$alarmType,$key,$key,$summarys{$key} \n";
-                        }
+                                push(@eventLst,"$alarmType,$key,$key,$summarys{$key} OCCUR");
+                                print "$alarmType,$key,$key,$summarys{$key} OCCUR\n";
+				if(!exists $regEvents{$key}){
+					$regEvents{$key} = 1;
+				}else{
+					$regEvents{$key} = $regEvents{$key} +1;
+				}
+                        }else{
+				if( exists $regEvents{$key}){
+                                	push(@eventLst,"$alarmType,$key,$key,$summarys{$key} RECOVER");
+                                	print "$alarmType,$key,$key,$summarys{$key} RECOVER\n";
+					delete $regEvents{$key};
+				}
+			}
                 }
         }
 }

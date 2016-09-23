@@ -15,12 +15,17 @@ my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 require "$path/../conf/global.conf";
 require "$path/../lib/funcs.pl";
 
+my $app = "sender";
+my $error = "";
 dupProcess($file);
 my ($site,$loopaddress,$server,$webServer,$webPort)=loadLocalConf();
+my @eventLst = ();
 my $isWrite = chkFileSystem();
 if($isWrite != 0){
-	my $body = "FSReadOnly,sender.touch,$HOME,FileSystem $HOME readonly($isWrite),touch $HOME/miops/run/tmp/sender.tmp failed";
-	sendMsg("event",$body);
+	my $desc = "error code: $isWrite; $error";
+	push(@eventLst,"FSReadOnly,$app.isWrite,$HOME,$desc");
+	print "$eventLst[0]\n";
+	sendMsg("event",$eventLst[0]);
 	exit;
 }
 my @dirs = ("event","perf","config","state","log");
@@ -66,10 +71,6 @@ sub doDir{
 }
 
 sub chkFileSystem{
-	my $out = `touch $HOME/miops/run/tmp/sender.tmp 2>&1`;
-	if($out =~ /read.*only/i){
-		return $?;
-	}else{
-		return 0;
-	}
+	$error = `touch $path/../../run/tmp/sender.tmp 2>&1`;
+	return $?;
 }

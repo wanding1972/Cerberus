@@ -320,7 +320,8 @@ sub readHash{
                         chomp($line);
                         next if($line =~ /^#/);
                         my @tokens = split /=/,$line;
-                        $hash{$tokens[0]} = $tokens[1];
+			my $key = trim($tokens[0]);
+                        $hash{$key} = trim($tokens[1]);
                 }
                 close(FILE);
         }

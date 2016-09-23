@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use Encode;
-use SendMail;
+#use SendMail;
 use POSIX 'setsid';
 use File::Spec;
 my $path_curf = File::Spec->rel2abs(__FILE__);
@@ -11,11 +11,12 @@ require "$path/../conf/server.conf";
 
 my $home = "$path/../..";
 my $app = "trigger";
+dupProcess($file);
 daemon($app,$home);
 
 my %eventCur = ();
 my @eventHis = ();
-my %mapHost = readHash("$path/../../data/host.map");
+my %mapHost = ();
 
 my $fileCur = "$path/../../data/failure.cur";
 my $fileHis = "$path/../../data/failure.his";
@@ -23,25 +24,52 @@ my $bpFile = "$path/../../data/event.BP";
 
 loadCurEvent();
 
+my %regEvents = ();
+my $counter = 0;
 while(1){
 	do "$path/../conf/mail.rule";
 	my $fileLog = "$path/../../data/event.log";
-
-  my $last_point = readBP($fileLog);
-  if(open(FILE,$fileLog)){
-       seek(FILE,$last_point,0);
-       while(my $line = <FILE> ){
-            processLine($line);
-            if (my $last_point_tmp = tell(FILE)){
-                   $last_point=$last_point_tmp ;
-            }
-        }
-        close(FILE);
-        writeBP($last_point);
-  }
-  triggerClean();
-  output();
-  sleep(5);
+	if($counter % 12 == 0){
+		%mapHost = readHash("$path/../../data/host.map");
+		my @status = stat($fileLog);
+                my $modtime = $status[9];
+                my $interval = int((time() - $modtime)/60+0.5);
+		my $evtKey = "NoNewEvents,event.log";
+		if($interval > 10){
+			my $msgEvt = curtime().",NOD999,127.0.0.1,NoNewEvents,$app.mtime,event.log,hasnot received new events for $interval minutes OCCUR";
+			processLine($msgEvt);
+			print "$msgEvt \n";
+			if(!exists($regEvents{$evtKey})){
+				$regEvents{$evtKey} = 1;	
+			}
+		}else{
+			if(exists($regEvents{$evtKey})){
+				my $msgEvt = curtime().",NOD999,127.0.0.1,NoNewEvents,$app.mtime,event.log,hasnot received new events for $interval minutes RECOVER";
+				processLine($msgEvt);
+				delete $regEvents{$evtKey};
+				
+			}
+		}
+	}
+  	my $last_point = readBP($fileLog);
+	my $cur_point = -s $fileLog;
+    	if ($cur_point > $last_point){
+  	   if(open(FILE,$fileLog)){
+       		seek(FILE,$last_point,0);
+       		while(my $line = <FILE> ){
+           		processLine($line);
+            		if (my $last_point_tmp = tell(FILE)){
+                   		$last_point=$last_point_tmp ;
+            		}
+        	}
+        	close(FILE);
+        	writeBP($last_point);
+  	   }
+	}
+  	triggerClean();
+  	output();
+  	$counter++;
+  	sleep(5);
 }
 
 sub processLine{
@@ -57,13 +85,19 @@ sub processLine{
         my ($siteID,$ip,$eventType,$index,$fac,$summary) = ($tokens[1],$tokens[2],$tokens[3],$tokens[4],$tokens[5],$tokens[6]);
         if(exists $eventCur{$key}){
                         my $ref = $eventCur{$key};
-                        my $times = $ref->[6]+1;
-                        my $last = time;
-                        $eventCur{$key} = [$siteID,$ip,$eventType,$index,$fac,$summary,$times,$ref->[7],$last,$ref->[9]];
+			if($summary !~ /RECOVER/){
+                        	my $times = $ref->[6]+1;
+                        	my $last = time;
+                        	$eventCur{$key} = [$siteID,$ip,$eventType,$index,$fac,$summary,$times,$ref->[7],$last,$ref->[9],$ref->[10],$ref->[11]];
+			}else{
+				my $times = defined $ref->[11]? $ref->[11]+1:1;
+				my $close = time;
+                        	$eventCur{$key} = [$siteID,$ip,$eventType,$index,$fac,$summary,$ref->[6],$ref->[7],$ref->[8],$ref->[9],$close,$times];
+			}
         }else{
                         my $times = 1;
                         my $start = time;
-                        $eventCur{$key} = [$siteID,$ip,$eventType,$index,$fac,$summary,$times,$start,$start,0];
+                        $eventCur{$key} = [$siteID,$ip,$eventType,$index,$fac,$summary,$times,$start,$start,0,0,0];
         }
 }
 
@@ -73,35 +107,41 @@ sub triggerClean{
                         my $ref = $eventCur{$key};
 			my $site = $ref->[0];
 			my $ip = $ref->[1];
-			my $hostname = trim(exists $mapHost{"$site-$ip"}? $mapHost{"$site-$ip"}:'');
-                        my $lastTime = $ref->[8];
-                        my $cleanTime = curtime();
 			my $alarmType = trim($ref->[2]);
 			my $times = $ref->[6];
-                        if(exists $main::triggers{$alarmType} && $times >= $main::triggers{$alarmType} && $ref->[9] eq '0' ){
-			    if(exists $main::mails{$site} || exists $main::mails{'ALL'}){ 
-				 my $receivers = "";
-				 my $subject   = "$site $ip $hostname $alarmType $ref->[4]";
-				 my $start = curtime($ref->[7]);
-				 my $end   = curtime($ref->[8]);
-				 my $detail     = "$ref->[3],$ref->[4],$ref->[5], occur $times, start from $start, lasttime  occur $end";
-				 if(exists $main::mails{$site}){
-					$receivers .= $main::mails{$site}.','. $main::mails{"ALL"};	
-				 }else{
-				    $receivers = $main::mails{"ALL"};
-				 }
-				 mailReport('',$receivers,$subject,$detail);
-				 sendMicroMsg($site,$ip,$alarmType,$hostname,$ref->[4]);
-                                 print curtime()." mail $receivers:  $subject : $detail  \n";
-                	    $eventCur{$key} = [$ref->[0],$ref->[1],$alarmType,$ref->[3],$ref->[4],$ref->[5],$times,$ref->[7],$ref->[8],'MAIL-'.$cleanTime];
-			    }
-                        }else{
-			} 
-                        if(exists $main::cleans{$alarmType} && time - $lastTime > $main::cleans{$alarmType} ){
-                          unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$ref->[7],$ref->[8],$ref->[9]]);
+                        
+                        my $lastTime = $ref->[8];
+			my $closeTime = $ref->[10];
+			my $flapTimes = $ref->[11];
+			#notify alarm( mail | WeChat)
+                        if(exists $main::triggers{$alarmType} && $times >= $main::triggers{$alarmType} && $flapTimes < $main::FLAP_TIMES  && ($ref->[9] eq '0' || $ref->[9] < time()-$main::MAIL_TIMEOUT) ){
+				notifyAlarm($site,$ip,$alarmType,$ref->[4],'OCCUR');
+                	    	$eventCur{$key} = [$ref->[0],$ref->[1],$alarmType,$ref->[3],$ref->[4],$ref->[5],$times,$ref->[7],$ref->[8],time(),$ref->[10],$ref->[11]];
+                        }
+			
+			#clean to alarmHis 
+			my $cleanTime = curtime();
+			my $start = curtime($ref->[7]);
+			my $end   = curtime($ref->[8]);
+			my $mailTime = curtime($ref->[9]);
+			my $closeTag = curtime($closeTime);
+			if($closeTime > $lastTime && $closeTime < time-$main::FLAP_TIMEOUT){
+			 	if($ref->[9] > 0){
+			  		notifyAlarm($site,$ip,$alarmType,$ref->[4],'RECOVER');
+				}
+                          unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$start,$end,$mailTime,$closeTag,$ref->[11]]);
                           unshift(@cleanKeys, $key);
-                        }elsif(! exists $main::cleans{$alarmType} && time - $lastTime > $main::EXPIRETIME){
-                          unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$ref->[7],$ref->[8],$ref->[9]]);
+			}elsif(exists $main::cleans{$alarmType} && time - $lastTime > $main::cleans{$alarmType} ){
+			 	if($ref->[9] > 0){
+			  		notifyAlarm($site,$ip,$alarmType,$ref->[4],'RECOVER');
+				}
+                          unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$start,$end,$mailTime,$closeTag,$ref->[11]]);
+                          unshift(@cleanKeys, $key);
+                        }elsif(! exists $main::cleans{$alarmType} && time - $lastTime > $main::CLEAN_TIMEOUT){
+			 	if($ref->[9] > 0){
+			  		notifyAlarm($site,$ip,$alarmType,$ref->[4],'RECOVER');
+				}
+                          unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$start,$end,$mailTime,$closeTag,$ref->[11]]);
                           unshift(@cleanKeys, $key);
 			}
         }
@@ -117,6 +157,8 @@ sub loadCurEvent{
                 foreach my $line (@lines) {
                         chomp($line);
                         my @tokens = split /,/,$line;
+			$tokens[10] = defined $tokens[10]? $tokens[10]:0;
+			$tokens[11] = defined $tokens[10]? $tokens[11]:0;
                         my $key = "$tokens[0],$tokens[1],$tokens[2],$tokens[4]";
                         $eventCur{$key} = \@tokens;
                 }
@@ -128,14 +170,14 @@ sub output{
         if(open(FILE,">$fileCur")){
                 foreach my $key (keys %eventCur) {
                         my $ref = $eventCur{$key};
-                        print FILE "$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$ref->[7],$ref->[8],$ref->[9]\n";
+                        print FILE "$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$ref->[7],$ref->[8],$ref->[9],$ref->[10],$ref->[11]\n";
                 }
                 close(FILE);
         }
 
         if(open(FILE,">>$fileHis")){
                 foreach my $ref (@eventHis) {
-                        print FILE "$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$ref->[7],$ref->[8],$ref->[9],$ref->[10]\n";
+                        print FILE "$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$ref->[7],$ref->[8],$ref->[9],$ref->[10],$ref->[11],$ref->[12]\n";
                 }
                 close(FILE);
         }
@@ -155,12 +197,10 @@ sub readBP{
                 }
         }
     my $cur_point = -s $fileLog;
-    if ($cur_point == $last_point){
-              next;
-    }elsif ($cur_point < $last_point){ 
+    if ($cur_point < $last_point){ 
            $last_point = 0 ;
     }
-        return $last_point;
+    return $last_point;
 }
 
 sub writeBP{
@@ -193,30 +233,81 @@ sub mailReport($$$$){
         $sm->To(@mailaddr);
         $sm->setMailBody($mailcontent);
         $sm->Attach($file);
+	my $out = "";
         if ($sm->sendMail() != 0) {
-                my $Detail = "Mail send to @mailaddr error, " . $sm->{'error'} . "\n";
-                return(-1);
-        }
-        return 0;
+             	$out = " error, " . $sm->{'error'} ;
+        }else{
+		$out = " suceed!";
+	}
+	print "mail: $headers $mailaddrs $out\n"; 
 }
 
 sub sendMicroMsg($$$$$){
 	my ($site,$ip,$alarmType,$hostname,$fac) = @_;
-	if(exists $main::MicroMsgs{$site} || exists $main::MicroMsgs{'ALL'}){
-	      my $receivers = "";
-	   if(exists $main::MicroMsgs{$site}){
-              $receivers .= $main::MicroMsgs{$site}.'|'. $main::MicroMsgs{"ALL"};
-           }else{
-              $receivers = $main::MicroMsgs{"ALL"};
-           }
-	   my $msg = "$alarmType $hostname $fac";
-           my $body =  '{"userlist":"'.$receivers.'","site":"'.$site.'","ip":"'.$ip.'","msg":"'.$msg.'"}';
-           my $cmd  = "curl -XPOST http://192.168.6.229/miops/weixin/send.php  -d '$body'";
-           my $out  = `$cmd`;
-	   print "$body $out\n";	
-	}		
+        my $receivers = getNotifier('wechat',$site);
+	return if($receivers eq '');
+	my $msg = "$alarmType $hostname $fac test";
+        my $body =  '{"userlist":"'.$receivers.'","site":"'.$site.'","ip":"'.$ip.'","msg":"'.$msg.'"}';
+        my $cmd  = "curl -XPOST $main::urlWechat -d '$body' 2>/dev/null";
+        my $out  = `$cmd`;
+	my $cleanTime = curtime();
+	print "wechat: $cleanTime $body $out\n";	
 }
 
+sub notifyAlarm{
+	my ($site,$ip,$alarmType,$fac,$action) = @_;
+	my $key = "$site,$ip,$alarmType,$fac";
+	my $ref = $eventCur{$key};
+        my $hostname = trim(exists $mapHost{"$site-$ip"}? $mapHost{"$site-$ip"}:'');
+        my $subject   = "$site $ip $hostname $alarmType $ref->[4]";
+	my $times    = $ref->[6];
+        my $start = curtime($ref->[7]);
+        my $end   = curtime($ref->[8]);
+        my $detail     = "$ref->[3],$ref->[4],$ref->[5], occur $times, start from $start, lasttime  occur $end";
+        sendMicroMsg($site,$ip,$alarmType,$hostname,$ref->[4]);
+        my $receivers = getNotifier('mail',$site);
+	if($receivers ne ''){
+        #        mailReport('',$receivers,$subject,$detail);
+        }
+
+}
+
+sub getNotifier {
+	my ($type,$site) = @_;
+	my %hash = readHash("$path/../conf/notify.dic");
+	my %hashUser = readHash("$path/../conf/user.dic");
+	my %users = ();
+	if(exists $hash{$site}){
+		my @users = split /,/, $hash{$site};
+		foreach my $user (@users){
+			$users{$user} = 1;
+		}	
+	}
+	if(exists $hash{'ALL'}){
+		my @users = split /,/,$hash{'ALL'};
+		foreach my $user (@users){
+			$users{$user} = 1;
+		}
+	}
+	my @wechats = ();
+	my @mails = ();
+	foreach my $key (keys %users){
+		my @tokens = split /,/,$hashUser{$key};
+			if(defined $tokens[1] && $tokens[1] ne ''){
+				push(@wechats ,$tokens[1]);
+			}
+			if(defined $tokens[0] && $tokens[0] ne ''){
+				push(@mails ,$tokens[0]);
+			}
+	}
+	my $strWechat = join ('|', @wechats);
+	my $strMail   = join (',', @mails);
+	if($type eq 'wechat'){
+		return $strWechat;
+	}else{
+		return $strMail;
+	}
+}
 sub daemon{
         my ($app,$home) = @_;
         my $pidFile = "$home/data/$app.pid";

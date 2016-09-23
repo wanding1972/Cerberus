@@ -17,6 +17,9 @@ if( -e $serviceConf){
 }
 
 dupProcess($file);
+
+my $regFile = "$path/../../../run/tmp/regEvents.service";
+my %regEvents = readHash($regFile);
 my @eventLst = ();
 foreach my $servicename (keys(%main::service)){
 	next if( hasService($servicename) == 0);
@@ -38,9 +41,19 @@ foreach my $servicename (keys(%main::service)){
 			last;
 		}
 	}
+	my $key = "serviceFault,$app.$index,$servicename";
 	if($checkResult ne ''){ 
-		push(@eventLst,"serviceFault,$app.$index,$servicename,$checkResult");
+		push(@eventLst,"serviceFault,$app.$index,$servicename,$checkResult OCCUR");
+		if(!exists $regEvents{$key}){
+			$regEvents{$key} = 1;
+		}else{
+			$regEvents{$key} = $regEvents{$key} +1;
+		}
 	}else{
+		if( exists $regEvents{$key}){
+			push(@eventLst,"serviceFault,$app.$index,$servicename,$checkResult RECOVER");
+			delete $regEvents{$key};
+		}
 		my $cmd = "$path/../../../run/tmp/$servicename".'.srv';
 		`touch $cmd`;
 		debug("service: $servicename is OK");
@@ -58,6 +71,7 @@ if($#eventLst >=0){
                 close(FILE);
         }
 }
+writeHash(\%regEvents,$regFile);
 my $file = "$path/../../../run/tmp/$app.pid";
 `echo $$ > $file`;
 

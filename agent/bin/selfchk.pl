@@ -20,6 +20,7 @@ dupProcess($file);
 # format: msgType,agentVersion,node,ip,confvserion,agentHealth,pluginHealth,filterHealth,runSize
 my $health = selfHealth();
 my $confversion = confVersion();
+info("confversion=".$confversion);
 my $diskSize = diskSize();
 my $summary = "$confversion,$diskSize,$health";
 isAlive($summary);
@@ -84,12 +85,28 @@ sub diskSize{
 }
 
 sub confVersion{
-	my %hash = readHash("$path/../conf/conf.version");
-	if(exists($hash{'confversion'})){
-		return $hash{'confversion'};
-	}else{
-		return 0;
+	my $sqlFile = "$path/../conf/sql.rule";
+	my $servFile = "$path/../conf/service.rule";
+	my $triggerFile = "$path/../conf/trigger.rule";
+
+	require $triggerFile;
+	if( -e $servFile){
+		require $servFile;
 	}
+	if( -e $sqlFile){
+		require $sqlFile;
+	}
+	my $confVer = "v1";
+	if(defined $main::sqlVersion){
+		$confVer .= $main::sqlVersion;
+	}
+	if(defined $main::servVersion){
+		$confVer .= ':'.$main::servVersion;
+	}
+	if(defined $para::triggerVersion){
+		$confVer .= ':'.$para::triggerVersion;
+	}
+	return $confVer;
 }
 
 sub clean{

@@ -218,7 +218,7 @@ sub getHostIP{
         chomp($os);
         my %cmdsip = (
                         'HP-UX' =>'/usr/bin/netstat -in',
-                        'Linux' => '/sbin/ifconfig -a|grep Mask',
+                        'Linux' => '/sbin/ifconfig -a|grep [mM]ask',
                         'SunOS' => '/sbin/ifconfig -a|grep netmask',
                         'AIX' => '/usr/sbin/ifconfig -a|grep netmask'
                         );
@@ -232,6 +232,9 @@ sub getHostIP{
                         next if($line =~ /127.0.0.1/);
                         if($os eq 'Linux'){
                            if($line =~ /addr:([^ ]+).+Mask/){
+                                         $ip = $1;
+                                         $ips{$ip} = 1;
+                           }elsif($line =~/inet ([^ ]+).+mask/){
                                          $ip = $1;
                                          $ips{$ip} = 1;
                            }

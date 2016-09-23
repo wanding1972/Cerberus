@@ -13,11 +13,12 @@ require "$path/min_funcs.pl";
 dupProcess($file);
 
 my $statusFile = "$path/../../data/host.status";
-my $lstFile    = "$path/../conf/host.lst";
+my $lstFile    = "$path/../../data/host.csv";
 my %hosts;              #key=time
 
 #memory cache
-my %failedHosts = ();   
+my %failedHosts = ();
+my %proxys = ();
 my %hostStatus;        
 my @eventList = ();
 my @perfList = ();
@@ -74,7 +75,6 @@ while(1) {
         next unless my $client=recv(SERVER,$buff,1024,0);
         #???ello-NOD999-2.2.0-1367049175-127.0.0.1-linux5.6-PRC
         my ($type,$version,$site,$ip,$msg) = split /\|/,$buff;
-        next if($version<20);
         my $key = "$site,$ip";
         my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =localtime(time);
         my $strTime= sprintf("%04d-%02d-%02d %02d:%02d:%02d", $year+1900,$mon+1,$mday,$hour,$min,$sec);
@@ -93,8 +93,10 @@ while(1) {
                         }
 			my @failedList = ();
 			foreach my $key1 (keys %failedHosts){
-				print HELLO "$strTime,$key1,AGENT_CRASH,acceptor.health,-,agent may be crashed\n";
-				unshift(@failedList,$key1);
+				if(exists $proxys{$key1}){
+					print HELLO "$strTime,$key1,AGENT_CRASH,acceptor.health,-,agent may be crashed\n";
+					unshift(@failedList,$key1);
+				}
 			}
 			foreach my $key1 (@failedList){
 				delete $failedHosts{$key1};
@@ -175,11 +177,14 @@ sub load(){
                    chomp($line);
                    next if($line =~ /^$/);
                    next if($line =~ /^#/);
-                   my ($node,$ip) = split /[ \t]+/,$line;
+                   my ($ip,$node) = split /,/,$line;
                    my $key = "$node,$ip";
                    if(! exists $hosts{$key}){
                         $hosts{$key} = time;
                    }
+		   if($line =~ /proxy/i){
+		   	$proxys{$key} = 1;
+		   }
                 }
                 close(FILE);
         }
@@ -199,7 +204,7 @@ sub output(){
                         my $ipaddress = $tokens[1];
 
                         my $status = 'ONLINE';
-                        if($elapse > $main::EXPIRETIME) {
+                        if($elapse > $main::OFFLINE_TIMEOUT) {
                                 $status = 'OFFLINE';
 				$failedHosts{$key} = 1;
                         }
