@@ -23,6 +23,11 @@ my %regEvents = readHash($regFile);
 
 my @eventLst = ();
 my $fileName = "$path/../../conf/host.lst";
+if( -e $fileName){
+	$fileName = "$path/../../conf/host.lst";
+}else{
+	$fileName = "$path/../../../server/conf/ssh.lst";
+}
 if(open(FILE,$fileName)){
         my @lines = <FILE>;
         foreach my $line (@lines){
@@ -32,8 +37,9 @@ if(open(FILE,$fileName)){
                 my $ip = $tokens[0];
                 my $name = $tokens[1];
                 my $port = defined $tokens[2]? $tokens[2]:22;
-		my $ret = testSSH($ip,$port,'slview');
+		my $ret = testSSH($ip,$port,'testuser');
 		my $key = "sshFailed,$app.isAlived,$ip-$name";
+		print "\n$ret  $key\n";
 		if($ret eq 'failed'){
 			push(@eventLst,"sshFailed,$app.isAlived,$ip-$name,$ret OCCUR");
 			if(!exists $regEvents{$key}){

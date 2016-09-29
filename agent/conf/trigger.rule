@@ -1,4 +1,5 @@
 package para;
+our $triggerVersion = '2.0';
 
 our %rulesAvg = (
 	'cpu.cpu_idle.*' => { '<12'  => 'cpu idle avg less 12%' },

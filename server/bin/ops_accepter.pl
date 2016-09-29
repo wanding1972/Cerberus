@@ -14,12 +14,11 @@ dupProcess($file);
 
 my $statusFile = "$path/../../data/host.status";
 my $lstFile    = "$path/../../data/host.csv";
-my %hosts;              #key=time
 
-#memory cache
-my %failedHosts = ();
+my %hosts = ();              #key=time
 my %proxys = ();
-my %hostStatus;        
+my %hostStatus = ();
+
 my @eventList = ();
 my @perfList = ();
 my @logList = ();
@@ -36,7 +35,6 @@ if($sockpid > 0) {      #father process
         print "parent:$sockpid\n";
         my $timeoutpid = fork;
         if($timeoutpid == 0) {
-                #??¨???
                 &setsid();
                 chdir '/';
                 umask 022;
@@ -91,16 +89,6 @@ while(1) {
                         foreach my $event (@eventList){
                                 print HELLO $event;
                         }
-			my @failedList = ();
-			foreach my $key1 (keys %failedHosts){
-				if(exists $proxys{$key1}){
-					print HELLO "$strTime,$key1,AGENT_CRASH,acceptor.health,-,agent may be crashed\n";
-					unshift(@failedList,$key1);
-				}
-			}
-			foreach my $key1 (@failedList){
-				delete $failedHosts{$key1};
-			}
                         close(HELLO);
                    }
                    @eventList = ();
@@ -108,9 +96,9 @@ while(1) {
         }elsif($type eq 'state'){
                 $hosts{$key}=time;
                 $hostStatus{$key} = $version.','.$msg;
-		my $stateLog = "$path/../../data/state.$tag.log"; 
+		my $stateLog = "$path/../../data/stat.$tag.log"; 
 		if( ! -e $stateLog){
-			`mv $path/../../data/state.log $stateLog`;
+			`mv $path/../../data/stat.log $stateLog`;
 		}
                 if(open(HELLO,">>$path/../../data/stat.log")){
 			print HELLO "$strTime,$key,$msg\n";
@@ -177,13 +165,15 @@ sub load(){
                    chomp($line);
                    next if($line =~ /^$/);
                    next if($line =~ /^#/);
-                   my ($ip,$node) = split /,/,$line;
+		   my @tokens = split /,/,$line;
+                   my ($ip,$node,$user) = ($tokens[0],$tokens[1],$tokens[2]);
+		   my $port = defined $tokens[5] ? $tokens[5]:22;
                    my $key = "$node,$ip";
                    if(! exists $hosts{$key}){
                         $hosts{$key} = time;
                    }
 		   if($line =~ /proxy/i){
-		   	$proxys{$key} = 1;
+		   	$proxys{$key} = "$node,$ip,$user,$port";
 		   }
                 }
                 close(FILE);
@@ -194,6 +184,7 @@ sub load(){
 sub output(){
         my @keys = keys %hostStatus;
         return if($#keys <0);
+	my %failedHosts = ();
         if(open(TMPFILE,">$statusFile")){
                 foreach my $key (@keys) {
                         my $hellotime = $hosts{$key};
@@ -206,12 +197,24 @@ sub output(){
                         my $status = 'ONLINE';
                         if($elapse > $main::OFFLINE_TIMEOUT) {
                                 $status = 'OFFLINE';
-				$failedHosts{$key} = 1;
+				if(exists $proxys{$key}){
+					$failedHosts{$key} = 1;
+				}
                         }
                         $now = $now - 3600*24*365*46;
                         $hellotime = $hellotime - 3600*24*365*46;
-                        print TMPFILE "$node,$ipaddress,$status,$hostStatus{$key},$now,$hellotime\n";
-        }
-        close(TMPFILE);
-   }
+			if(exists $hosts{$key}){
+                        	print TMPFILE "$node,$ipaddress,$status,$hostStatus{$key},$now,$hellotime\n";
+			}
+        	}
+	        close(TMPFILE);
+   	}
+        if(open(SSHFILE,">$path/../conf/ssh.lst")){
+                foreach my $key (keys %failedHosts){
+			my ($node,$ip,$user,$port) = split /,/, $proxys{$key};
+                       #print SSHFILE "$strTime,$key,AGENT_CRASH,acceptor.health,-,agent may be crashed\n";
+                       print SSHFILE  "$ip,$user,$port\n";
+                }
+		close(SSHFILE);
+	}
 }

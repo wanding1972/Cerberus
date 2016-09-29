@@ -31,7 +31,8 @@ while(1){
 	my $fileLog = "$path/../../data/event.log";
 	if($counter % 12 == 0){
 		%mapHost = readHash("$path/../../data/host.map");
-		my @status = stat($fileLog);
+		my $statLog = "$path/../../data/stat.log";
+		my @status = stat($statLog);
                 my $modtime = $status[9];
                 my $interval = int((time() - $modtime)/60+0.5);
 		my $evtKey = "NoNewEvents,event.log";
@@ -47,7 +48,6 @@ while(1){
 				my $msgEvt = curtime().",NOD999,127.0.0.1,NoNewEvents,$app.mtime,event.log,hasnot received new events for $interval minutes RECOVER";
 				processLine($msgEvt);
 				delete $regEvents{$evtKey};
-				
 			}
 		}
 	}
@@ -113,6 +113,7 @@ sub triggerClean{
                         my $lastTime = $ref->[8];
 			my $closeTime = $ref->[10];
 			my $flapTimes = $ref->[11];
+
 			#notify alarm( mail | WeChat)
                         if(exists $main::triggers{$alarmType} && $times >= $main::triggers{$alarmType} && $flapTimes < $main::FLAP_TIMES  && ($ref->[9] eq '0' || $ref->[9] < time()-$main::MAIL_TIMEOUT) ){
 				notifyAlarm($site,$ip,$alarmType,$ref->[4],'OCCUR');
@@ -258,12 +259,18 @@ sub notifyAlarm{
 	my ($site,$ip,$alarmType,$fac,$action) = @_;
 	my $key = "$site,$ip,$alarmType,$fac";
 	my $ref = $eventCur{$key};
-        my $hostname = trim(exists $mapHost{"$site-$ip"}? $mapHost{"$site-$ip"}:'');
-        my $subject   = "$site $ip $hostname $alarmType $ref->[4]";
+
+        my $hostname = trim(exists $mapHost{"$site-$ip"}? $mapHost{"$site-$ip"}:$ip);
+        my $subject   = "$site $hostname $ref->[4] $alarmType $action";
+
 	my $times    = $ref->[6];
         my $start = curtime($ref->[7]);
         my $end   = curtime($ref->[8]);
         my $detail     = "$ref->[3],$ref->[4],$ref->[5], occur $times, start from $start, lasttime  occur $end";
+	if($action eq 'RECOVER'){
+		my $closeTag = curtime($ref->[10]);
+        	$detail     = "$ref->[3],$ref->[4],$ref->[5], occur/recover $ref->[11], start from $start, closetime $closeTag";
+	}
         sendMicroMsg($site,$ip,$alarmType,$hostname,$ref->[4]);
         my $receivers = getNotifier('mail',$site);
 	if($receivers ne ''){

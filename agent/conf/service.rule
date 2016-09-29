@@ -1,3 +1,5 @@
+our $servVersion="3.0";
+
 our %service=(
 #	'sample'=>{
 #		'ps_count' => ['alarmcenter','<1'], 
@@ -16,9 +18,6 @@ our %service=(
 		   },
 	'oracle' => {
 		'ps_count' => ['ora_','<4']
-		},
-	'syslog' => {
-		'ps_count' => ['GetSyslog.pl','<1']
 		}
 );
 
