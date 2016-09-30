@@ -209,7 +209,7 @@ sub output(){
         	}
 	        close(TMPFILE);
    	}
-        if(open(SSHFILE,">$path/../conf/ssh.lst")){
+        if(open(SSHFILE,">$path/../../agent/conf/host.lst")){
                 foreach my $key (keys %failedHosts){
 			my ($node,$ip,$user,$port) = split /,/, $proxys{$key};
                        #print SSHFILE "$strTime,$key,AGENT_CRASH,acceptor.health,-,agent may be crashed\n";

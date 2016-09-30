@@ -126,24 +126,20 @@ sub triggerClean{
 			my $end   = curtime($ref->[8]);
 			my $mailTime = curtime($ref->[9]);
 			my $closeTag = curtime($closeTime);
-			if($closeTime > $lastTime && $closeTime < time-$main::FLAP_TIMEOUT){
-			 	if($ref->[9] > 0){
-			  		notifyAlarm($site,$ip,$alarmType,$ref->[4],'RECOVER');
-				}
-                          unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$start,$end,$mailTime,$closeTag,$ref->[11]]);
-                          unshift(@cleanKeys, $key);
+			my $cleanFlag = 0;			
+			if($closeTime > $lastTime && time - $closeTime > $main::FLAP_TIMEOUT){
+				$cleanFlag = 1;
 			}elsif(exists $main::cleans{$alarmType} && time - $lastTime > $main::cleans{$alarmType} ){
-			 	if($ref->[9] > 0){
-			  		notifyAlarm($site,$ip,$alarmType,$ref->[4],'RECOVER');
-				}
-                          unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$start,$end,$mailTime,$closeTag,$ref->[11]]);
-                          unshift(@cleanKeys, $key);
+				$cleanFlag = 1;
                         }elsif(! exists $main::cleans{$alarmType} && time - $lastTime > $main::CLEAN_TIMEOUT){
-			 	if($ref->[9] > 0){
-			  		notifyAlarm($site,$ip,$alarmType,$ref->[4],'RECOVER');
-				}
-                          unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$start,$end,$mailTime,$closeTag,$ref->[11]]);
-                          unshift(@cleanKeys, $key);
+				$cleanFlag = 1;
+			}
+			if($cleanFlag == 1){
+                      		if($ref->[9] > 0){
+                               	  notifyAlarm($site,$ip,$alarmType.'_RECO',$ref->[4],'RECOVER');
+                      		}
+                      		unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$start,$end,$mailTime,$closeTag,$ref->[11]]);
+                      		unshift(@cleanKeys, $key);
 			}
         }
         foreach my $item (@cleanKeys){
