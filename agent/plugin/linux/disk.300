@@ -9,6 +9,11 @@ require "$path/../../lib/command.pl";
 
 $ENV{'LC_ALL'} = 'C';
 my $app = "disk";
+my $option = argOption();
+if($option =~ /v/){
+        $main::LOGLEVEL=1;
+        $|=1;
+}
 dupProcess($file);
 my @res = diskplugin();
 if($#res >0){
@@ -35,6 +40,7 @@ sub dfkParse{
         my @perf = ();
         foreach my $line (@outs){
                 chomp($line);
+		debug($line);
                 $line=~s/^\s*|\s*$//g;
                 my @tokens = split(/ +/,$line);
                 chop($tokens[4]);

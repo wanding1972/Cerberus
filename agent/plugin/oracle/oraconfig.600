@@ -9,6 +9,9 @@ require "$path/../../lib/funcs.pl";
 $LANG='C';
 
 my $app = 'oraconfig';
+if(scalar @ARGV >0 && $ARGV[0] eq '-d'){
+        $main::LOGLEVEL=1;
+}
 dupProcess($file);
 if(hasService('oracle') == 0){
         print "has no oracle service\n";
@@ -36,6 +39,7 @@ foreach my $line (@lines){
         next if($line !~ /TD/);
 	next if($line =~ /NAME|SQL/);
         chomp($line);
+	debug($line);
         my (@tokens) = split /[\t ]+/,$line;
         my ($tsname,$ratio,$free) = ($tokens[1],$tokens[4],$tokens[5]);
         unshift(@perf,[$app,"ts_ratio",$tsname,$ratio]);
@@ -48,6 +52,7 @@ foreach my $line (@lines){
         next if($line !~ /TD/);
         next if($line =~ /COUNT|SQL/);
         chomp($line);
+	debug($line);
         my (@tokens) = split /[\t ]+/,$line;
         unshift(@perf,[$app,"ind_fails",'-',$tokens[1]]);
 }
@@ -65,7 +70,8 @@ $sql = "select 'TD',(b-a)/1024/1024 free ,a/b*100 ratio from (
 foreach my $line (@lines){
         next if($line !~ /TD/);
         next if($line =~ /COUNT|SQL/);
-        chomp($line);                                                                                                               
+        chomp($line);
+	debug($line);                                                                                                               
         my (@tokens) = split /[\t ]+/,$line;
         unshift(@perf,[$app,"ts_ratio",'UNDOTBS',$tokens[2]]);
         unshift(@perf,[$app,"ts_free",'UNDOTBS',$tokens[1]]);
@@ -78,4 +84,4 @@ my $dstDir = "$path/../../../run/queue/current/";
 
 
 `echo $$ > $path/../../../run/tmp/$app.pid`;
-print "oraconfig is over\n";
+info("oraconfig is over");

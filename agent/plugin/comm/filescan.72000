@@ -9,6 +9,7 @@ require "$path/../../conf/global.conf";
 require "$path/../../lib/funcs.pl";
 $ENV{'LC_ALL'} = 'C';
 $| = 1;
+dupProcess($file);
 my $baseFile = "$home/run/cfg/index.base";
 my $oldFile  = "$home/run/cfg/index.old";
 my $curFile  = "$home/run/cfg/index.cur";

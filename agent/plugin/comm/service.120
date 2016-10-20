@@ -11,6 +11,12 @@ require "$path/../../lib/service.pl";
 
 $ENV{'LC_ALL'} = 'C';
 my $app = "service";
+my $option = argOption();
+if($option =~ /v/){
+        $main::LOGLEVEL=1;
+        $|=1;
+}
+
 my $serviceConf = "$path/../../conf/service.rule";
 if( -e $serviceConf){
 	require $serviceConf;
@@ -26,7 +32,6 @@ foreach my $servicename (keys(%main::service)){
 	my $hashref = $main::service{$servicename};
 	my $paraname;
 	my $checkResult='';
-
 	my $index = "";
 	#iterate the check item of each service
 	foreach $paraname (keys(%$hashref)){
@@ -37,13 +42,18 @@ foreach my $servicename (keys(%main::service)){
 		$index = $paraname;
 		$retval = paraChk($paraname,$value1,$value2);
 		if(($retval ne 'ok')&&($retval ne 'failed')){
-			$checkResult = $paraname.': '.$retval;
+			$checkResult = "$paraname: $retval ($value1)";
 			last;
 		}
 	}
 	my $key = "serviceFault,$app.$index,$servicename";
 	if($checkResult ne ''){ 
 		push(@eventLst,"serviceFault,$app.$index,$servicename,$checkResult OCCUR");
+		debug("service: $servicename is FAIL, $checkResult");
+		if($option =~ /a/ && exists $main::serviceAuto{$servicename}){
+			my $autoOut = system($main::serviceAuto{$servicename});
+			debug("serviceRestart:  $main::serviceAuto{$servicename}  return : $autoOut");
+		}
 		if(!exists $regEvents{$key}){
 			$regEvents{$key} = 1;
 		}else{

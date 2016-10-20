@@ -13,13 +13,13 @@ our %service=(
 #		'cron_1'      => ['root','watchdog'],
 #		'http_connect' => ['127.0.0.1:2003/caucho-status','200 OK']
 	#}
-	'redis' => {
-		'ps_count' => ['redis-server','<1']
-		   },
-	'oracle' => {
-		'ps_count' => ['ora_','<4']
-		}
+	'ops_trigger' => {
+		'ps_count' => ['ops_trigger.pl','<1']
+		   }
 );
 
+our %serviceAuto = (
+	'ops_trigger' => '$HOME/cerberus/server/bin/ops_trigger.pl'
+);
 
 1;

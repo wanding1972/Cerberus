@@ -17,6 +17,14 @@ sub curtime{
         return $curTime;
 }
 
+sub timeStr{
+        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =localtime(time);
+        $year+=1900;
+        $mon += 1;
+        my $curTime= sprintf("%04d-%02d-%02d %02d:%02d:%02d", $year,$mon,$mday,$hour,$min,$sec);
+        return $curTime;
+}
+
 sub trim{
         my ($line) = @_;
         chomp($line);
@@ -24,23 +32,39 @@ sub trim{
         return $line;
 }
 
+sub argOption{
+  my $option="";
+  if(scalar @ARGV >0 ){
+        my $num = 0;
+        foreach my $arg (@ARGV){
+                if($arg =~ /\-([a-zA-Z]+)/){
+                        $option .= $1;
+                        $num++;
+                }
+        }
+        for(my $i=0; $i<$num;$i++){
+                shift(@ARGV);
+        }
+  }
+  return $option;
+}
+
 sub debug{
         my ($msg) = @_;
-        my $curTime = localtime(time);
         if($LOGLEVEL<2 &&$LOGLEVEL>0){
-                print $curTime.' DEBUG: '.$msg."\n";
+                print $msg."\n";
         }
 }
 sub error{
         my ($msg) = @_;
-        my $curTime = localtime(time);
+        my $curTime = timeStr;
         if($LOGLEVEL<4 &&$LOGLEVEL>0){
                 print $curTime.' ERROR: '.$msg."\n";
         }
 }
 sub info{
         my ($msg) = @_;
-        my $curTime = localtime(time);
+        my $curTime = timeStr;
         if($LOGLEVEL<3 &&$LOGLEVEL>0){
                 print $curTime.' INFO: '.$msg."\n";
         }

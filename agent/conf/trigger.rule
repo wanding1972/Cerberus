@@ -2,9 +2,9 @@ package para;
 our $triggerVersion = '2.0';
 
 our %rulesAvg = (
-	'cpu.cpu_idle.*' => { '<12'  => 'cpu idle avg less 12%' },
-	'dskio.util.*'  =>  { '>80'  => 'IObusy great than 80%' },
-	'cpu.page_out.*' => { '>3000'=> 'PAGEOUT'}
+	'cpu.cpu_idle.*' => { '<10'  => 'cpu idle avg less 12%' },
+	'dskio.util.*'  =>  { '>90'  => 'IObusy great than 80%' },
+	'cpu.page_out.*' => { '>5000'=> 'PAGEOUT'}
 	);
 
 our %autoActions = (
@@ -14,17 +14,17 @@ our %autoActions = (
 
 our %rules = (
 	 'disk_free_lessthan_500M' =>{
-					'disk.free.*' => '<500',
-					'disk.util.*' => '>95'
+					'disk.free.*' => '<200',
+					'disk.util.*' => '>99'
 					},
 	'tblspace_free500M_ratio>95' =>{
 					'oraconfig.ts_free.*'  => '<500',
-					'oraconfig.ts_ratio.*' => '>95'
+					'oraconfig.ts_ratio.*' => '>98'
 					},
 	'swap_ratio_exceed_60%'	   =>  { 'swap.swap_ratio.*'      => '>60' },
 	'cpu_idle_less_2%' 	   =>  { 'cpu.cpu_idle.-'        => '<2'  },
 	'index_failes'		   =>  { 'oraconfig.ind_fails.-' => '>0'  },
-	'oracleSessionExceed'      =>  { 'oraperf.sessRatio.-'   => '>95' }
+	'oracleSessionExceed'      =>  { 'oraperf.sessRatio.-'   => '>98' }
         );
 
 	

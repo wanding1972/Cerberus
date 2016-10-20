@@ -232,7 +232,7 @@ sub chkHTTP{
         	$con = connect(SOCK,$dest) ;
         	if(!$con){return "can not connect $addr:$port";}
 
-        	$buf = "GET $path http/1.1\n";
+        	$buf = "GET $path HTTP/1.1\n";
         	syswrite(SOCK,$buf,length($buf));
         	$buf = "Host: $addr:$port\n\n";
         	syswrite(SOCK,$buf,length($buf));

@@ -5,9 +5,8 @@ my $PROMPT = '[\#\$\>\%\]]\s*$';
 my $regPass = "[Pp]assword:";
 sub debug{
         my ($msg) = @_;
-        my $curTime = localtime(time);
         if($LOGLEVEL<2 &&$LOGLEVEL>0){
-                print $curTime.' DEBUG: '.$msg."\n";
+                print $msg."\n";
         }
 }
 sub error{

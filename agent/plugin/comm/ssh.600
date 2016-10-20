@@ -12,10 +12,14 @@ if ( -e "$path/../../conf/local.conf"){
 	require "$path/../../conf/local.conf";
 }
 require "$path/../../lib/funcs.pl";
-exit if($main::ROLE eq 'INDIRECT');
+exit if($main::ROLE eq 'INDIRECT' || $main::ROLE eq 'DIRECT');
 
 my $app = "ssh";
-
+my $option = argOption();
+if($option =~ /v/){
+        $main::LOGLEVEL=1;
+        $|=1;
+}
 dupProcess($file);
 
 my $regFile = "$path/../../../run/tmp/regEvents.ssh";
@@ -30,21 +34,21 @@ if(open(FILE,$fileName)){
                 chomp($line);
                 my @tokens = split /[ \t,]+/,$line;
                 my $ip = $tokens[0];
-                my $name = $tokens[1];
                 my $port = defined $tokens[2]? $tokens[2]:22;
 		my $ret = testSSH($ip,$port,'sshchecker');
-		my $key = "sshFailed,$app.isAlived,$ip-$name";
-		print "\n$ret  $key\n";
+		my $key = "sshFailed,$app.isAlived,$ip";
 		if($ret eq 'failed'){
-			push(@eventLst,"sshFailed,$app.isAlived,$ip-$name,$ret OCCUR");
+			push(@eventLst,"sshFailed,$app.isAlived,$ip,ssh from $main::LOOPADDRESS to $ip $ret OCCUR");
+			debug("FAIL: ssh from $main::LOOPADDRESS to $ip $ret");
 			if(!exists $regEvents{$key}){
 				$regEvents{$key} = 1;
 			}else{
 				$regEvents{$key} = $regEvents{$key} +1;
 			}
 		}else{
+			debug("OK: ssh from $main::LOOPADDRESS to $ip $ret");
 			if( exists $regEvents{$key}){
-				push(@eventLst,"sshFailed,$app.isAlived,$ip-$name,$ret RECOVER");
+				push(@eventLst,"sshFailed,$app.isAlived,$ip,ssh from $main::LOOPADDRESS to $ip $ret RECOVER");
 				delete $regEvents{$key};
 			}
 		}
@@ -66,6 +70,7 @@ if($#eventLst >=0){
 writeHash(\%regEvents,$regFile);
 my $file = "$path/../../../run/tmp/$app.pid";
 `echo $$ > $file`;
+info("$0 finished");
 
 
 sub testSSH{
@@ -73,7 +78,7 @@ sub testSSH{
 	my $PROMPT = '[\#\$\>\%\]]\s*$';
 	my $regPass = "[Pp]assword:";
 	my $sess=new Expect;
-	my $command = "ssh -o 'StrictHostKeyChecking no' -o ConnectTimeout=60  -l $user -p $port $ip";
+	my $command = "ssh -o 'StrictHostKeyChecking no' -o ConnectTimeout=60  -l $user -p $port $ip ";
 	$sess = Expect->spawn( $command );
 	if(! $sess){
 		print "Couldn't spawn ssh,$!\n";

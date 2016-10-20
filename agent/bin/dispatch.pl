@@ -14,6 +14,11 @@ require "$path/../conf/global.conf";
 require "$path/../lib/funcs.pl";
 
 my $app = "dispatch";
+my $option = argOption();
+if($option =~ /v/){
+        $main::LOGLEVEL=1;
+        $|=1;
+}
 if($#ARGV < 0 || $ARGV[0] !~ /start|stop|test/){
         print "Usage: $app.pl start|stop|test\n";
         exit(-1);
@@ -61,7 +66,7 @@ sub test{
 				my $pid = fork();
 				if($pid == 0){  #child process
 					my $procName = "$path/../$task $ticks";
-					debug($procName);
+					debug("task: $ticks   $procName");
 					if(!exec($procName)){
 						exit(-1);
 					}
@@ -95,7 +100,7 @@ sub execPlugin{
                 if(($inter > 0)&&($ticks % $inter == 0)){
                       my $pid = fork();
                       if($pid == 0){  #child process
-                         debug($path);
+                         debug("plugin:  $ticks  $path");
                          if(!exec($path)){
                                 exit(-1);
                          }

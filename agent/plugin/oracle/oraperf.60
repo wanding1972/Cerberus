@@ -9,6 +9,9 @@ require "$path/../../lib/funcs.pl";
 $ENV{'LC_ALL'} = 'C';
 
 my $app="oraperf";
+if(scalar @ARGV >0 && $ARGV[0] eq '-d'){
+        $main::LOGLEVEL=1;
+}
 dupProcess($file);
 if(hasService('oracle') == 0){
         print "has no oracle service\n";
@@ -32,6 +35,7 @@ foreach my $line (@lines){
         next if($line !~ /TD/);
 	next if($line =~ /NAME|SQL/);
         my $line1 = trim($line);
+	debug($line1);
         my @tokens = split /[ \t]+/,$line1;
 	my ($num,$ratio) = ($tokens[2],$tokens[3]);
         push(@perf,[$app,'sessNum','-',$num]);

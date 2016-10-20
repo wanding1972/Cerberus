@@ -1,5 +1,7 @@
 our @discards = (
 	#"alarmtype,fac",
+     	'/rhel5',
+        '/tools/iso',
 	'PAGEOUT',
 	'snapshot.pl',
 	'cpu idle < 2%',
@@ -39,13 +41,15 @@ our %cleans = (
 	);
 
 our %dictionary = (
-        'FSReadOnly'    => '磁盘分区只读',
-        "disk_free_lessthan_500M" => '磁盘空间满' ,
-        'tblspace_free500M_ratio>95' => '数据库表空间满',
-        'sshFailed' => 'SSH不通',
-        "serviceFault" => '服务故障',
-        'net_in_exceed_1M' => '网卡流量超限',
-        'oracleSessionExceed' => 'Oracle会话数超限'
+        'FSReadOnly'    		=> '磁盘分区只读',
+        "disk_free_lessthan_500M" 	=> '磁盘空间满' ,
+        'tblspace_free500M_ratio>95' 	=> '表空间满',
+        'sshFailed' 			=> 'SSH不通',
+        "serviceFault" 			=> '服务故障',
+	"businessFault" 		=> '业务故障',
+        'net_in_exceed_1M' 		=> '网卡流量超限',
+	'NoNewEvents'   		=> '无数据',
+        'oracleSessionExceed' 		=> 'Oracle会话数超限'
         );
 
 1

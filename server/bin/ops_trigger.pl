@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 use strict;
 use Encode;
-#use SendMail;
+use SendMail;
 use POSIX 'setsid';
 use File::Spec;
 my $path_curf = File::Spec->rel2abs(__FILE__);
@@ -116,7 +116,11 @@ sub triggerClean{
 
 			#notify alarm( mail | WeChat)
                         if(exists $main::triggers{$alarmType} && $times >= $main::triggers{$alarmType} && $flapTimes < $main::FLAP_TIMES  && ($ref->[9] eq '0' || $ref->[9] < time()-$main::MAIL_TIMEOUT) ){
-				notifyAlarm($site,$ip,$alarmType,$ref->[4],'OCCUR');
+				if($ref->[9] ne '0'){
+					notifyAlarm($site,$ip,$alarmType,$ref->[4],'RESEND');
+				}else{
+					notifyAlarm($site,$ip,$alarmType,$ref->[4],'OCCUR');
+				}
                 	    	$eventCur{$key} = [$ref->[0],$ref->[1],$alarmType,$ref->[3],$ref->[4],$ref->[5],$times,$ref->[7],$ref->[8],time(),$ref->[10],$ref->[11]];
                         }
 			
@@ -136,7 +140,7 @@ sub triggerClean{
 			}
 			if($cleanFlag == 1){
                       		if($ref->[9] > 0){
-                               	  notifyAlarm($site,$ip,$alarmType.'_RECO',$ref->[4],'RECOVER');
+                               	  notifyAlarm($site,$ip,$alarmType,$ref->[4],'RECOVER');
                       		}
                       		unshift(@eventHis, [$cleanTime,$ref->[0],$ref->[1],$ref->[2],$ref->[3],$ref->[4],$ref->[5],$ref->[6],$start,$end,$mailTime,$closeTag,$ref->[11]]);
                       		unshift(@cleanKeys, $key);
@@ -239,11 +243,11 @@ sub mailReport($$$$){
 	print "mail: $headers $mailaddrs $out\n"; 
 }
 
-sub sendMicroMsg($$$$$){
+sub weChat($$$$$){
 	my ($site,$ip,$alarmType,$hostname,$fac) = @_;
         my $receivers = getNotifier('wechat',$site);
 	return if($receivers eq '');
-	my $msg = "$alarmType $hostname $fac test";
+	my $msg = "$alarmType $hostname $fac";
         my $body =  '{"userlist":"'.$receivers.'","site":"'.$site.'","ip":"'.$ip.'","msg":"'.$msg.'"}';
         my $cmd  = "curl -XPOST $main::urlWechat -d '$body' 2>/dev/null";
         my $out  = `$cmd`;
@@ -253,25 +257,43 @@ sub sendMicroMsg($$$$$){
 
 sub notifyAlarm{
 	my ($site,$ip,$alarmType,$fac,$action) = @_;
+	my %denys = readHash("$path/../conf/mail.deny");
+	if(exists $denys{$alarmType} && $denys{$alarmType} =~ /$site|ALL/ ){
+		print "exit $ip $alarmType $fac\n"; 
+		return;
+	}
 	my $key = "$site,$ip,$alarmType,$fac";
 	my $ref = $eventCur{$key};
-
-        my $hostname = trim(exists $mapHost{"$site-$ip"}? $mapHost{"$site-$ip"}:$ip);
-        my $subject   = "$site $hostname $ref->[4] $alarmType $action";
+	$alarmType   = trim(exists $main::dictionary{$alarmType}? $main::dictionary{$alarmType}:$alarmType);
+        my $hostname = trim(exists $mapHost{"$site-$ip"}? $mapHost{"$site-$ip"}:'');
 
 	my $times    = $ref->[6];
         my $start = curtime($ref->[7]);
         my $end   = curtime($ref->[8]);
-        my $detail     = "$ref->[3],$ref->[4],$ref->[5], occur $times, start from $start, lasttime  occur $end";
+        my $subject  = "$action $alarmType $ip $hostname $ref->[4]";
+        my $detail     = 
+"HostName: $site, $ip $hostname <BR/>\n
+AlarmType: $alarmType <BR/>\n
+Position: $ref->[3] , $ref->[4] <BR/>\n
+Detail: $ref->[5] <BR/>\n
+Times: $times <BR/>\n 
+StartTime: $start <BR/>\n 
+LastTime: $end <BR/>\n";
 	if($action eq 'RECOVER'){
 		my $closeTag = curtime($ref->[10]);
-        	$detail     = "$ref->[3],$ref->[4],$ref->[5], occur/recover $ref->[11], start from $start, closetime $closeTag";
+        	$detail     = 
+"HostName: $site, $ip $hostname <BR/>\n
+AlarmType: $alarmType <BR/>\n 
+Position:  $ref->[3],$ref->[4] <BR/>\n 
+Detail: $ref->[5] <BR/>\n 
+RecoverTimes: $ref->[11] <BR/>\n 
+StartTime: $start <BR/>\n 
+CloseTime: $closeTag<BR/>\n";
 	}
-        sendMicroMsg($site,$ip,$alarmType,$hostname,$ref->[4]);
+	$detail .= "<A HREF='$main::urlMail?site=$site&ip=$ip'>DETAIL INFO</A>";
+        weChat($site,$ip,$alarmType." $action","$ip.$hostname",$ref->[4]);
         my $receivers = getNotifier('mail',$site);
-	if($receivers ne ''){
-        #        mailReport('',$receivers,$subject,$detail);
-        }
+        mailReport('',$receivers,$subject,$detail);
 
 }
 

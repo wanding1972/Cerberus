@@ -15,7 +15,11 @@ require "$path/../conf/global.conf";
 require "$path/../lib/funcs.pl";
 require "$path/../lib/service.pl";
 dupProcess($file);
-
+my $option = argOption();
+if($option =~ /v/){
+        $main::LOGLEVEL=1;
+        $|=1;
+}
 $ENV{'LC_ALL'} = 'C';
 my $serviceConf = "$path/../conf/service.rule";
 if( -e $serviceConf){
@@ -41,9 +45,11 @@ foreach my $servicename (keys(%main::service)){
                 my $value2 = $$arrayref[1];
        		if($paraname =~ /ps_count/){
                         $retval = chkProcess($value1,$value2);
+			debug("$paraname $value1  $retval");
 			last;
                 }elsif($paraname =~ /cron/){
 			$retval = chkCron($value1,$value2);
+			debug("$paraname $value1  $retval");
 			last;
 		}
 	}
