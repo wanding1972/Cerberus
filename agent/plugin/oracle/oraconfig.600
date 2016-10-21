@@ -1,25 +1,23 @@
 #!/usr/bin/perl
 use strict;
-use Env;
 use File::Spec;
 my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 require "$path/../../conf/global.conf";
 require "$path/../../lib/funcs.pl";
-$LANG='C';
+
+$ENV{'LC_ALL'} = 'C';
 
 my $app = 'oraconfig';
-if(scalar @ARGV >0 && $ARGV[0] eq '-d'){
+my $option = argOption();
+if($option =~ /v/){
         $main::LOGLEVEL=1;
+        $|=1;
 }
 dupProcess($file);
-if(hasService('oracle') == 0){
-        print "has no oracle service\n";
-        exit 1;
-}
 my $user = loginUser();
 if($user !~ /ora/){
-        print "is not oracle user\n";
+        print "loginUser $user is not oracle user\n";
         exit 0;
 }
 

@@ -40,6 +40,7 @@ if($operation eq 'start') {
 
 	my @pidlist = ();
 sub stop{
+	unregCron("$path/miops_watchdog.pl");
 	my $pidFile = "$path/../../run/tmp/$app.pid";
 	if(-e "$pidFile") {
 			open PIDFILE,"$pidFile";
@@ -114,6 +115,7 @@ sub execPlugin{
 }
 
 sub start{
+	regCron("$path/miops_watchdog.pl");
 	my $ticks = 0;
 	while(1){
 		test($ticks);

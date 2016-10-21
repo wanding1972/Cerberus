@@ -352,4 +352,38 @@ sub loginUser{
         return $loginUser;
 }
 
+sub regCron{
+        my ($program) = @_;
+        my $file="/tmp/crontab.cur";
+        my @entrys = `crontab -l`;
+
+        open(FILE,">$file")||die "can't open $file";
+        foreach my $entry (@entrys){
+                if($entry !~ /$program/){
+                         print FILE $entry;
+                }
+        }
+        print FILE "* * * * * $program >/dev/null 2>&1\n";
+        close(FILE);
+        `crontab $file`;
+        `rm /tmp/crontab.cur`;
+}
+
+sub unregCron{
+        my ($program) = @_;
+        my $file="/tmp/crontab.cur";
+        my @entrys = `crontab -l`;
+
+        open(FILE,">$file")||die "can't open $file";
+        foreach my $entry (@entrys){
+                if($entry !~ /$program/){
+                        print FILE $entry;
+                }
+        }
+        close(FILE);
+        `crontab $file`;
+        `rm /tmp/crontab.cur`;
+}
+
+
 1;

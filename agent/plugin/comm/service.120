@@ -8,9 +8,10 @@ my $home = "$path/../../..";
 require "$path/../../conf/global.conf";
 require "$path/../../lib/funcs.pl";
 require "$path/../../lib/service.pl";
-
 $ENV{'LC_ALL'} = 'C';
+
 my $app = "service";
+dupProcess($file);
 my $option = argOption();
 if($option =~ /v/){
         $main::LOGLEVEL=1;
@@ -22,13 +23,13 @@ if( -e $serviceConf){
 	require $serviceConf;
 }
 
-dupProcess($file);
 
 my $regFile = "$path/../../../run/tmp/regEvents.service";
 my %regEvents = readHash($regFile);
 my @eventLst = ();
 foreach my $servicename (keys(%main::service)){
 	next if( hasService($servicename) == 0);
+	next if (defined $ARGV[0] && $servicename !~ /$ARGV[0]/);
 	my $hashref = $main::service{$servicename};
 	my $paraname;
 	my $checkResult='';
@@ -60,13 +61,13 @@ foreach my $servicename (keys(%main::service)){
 			$regEvents{$key} = $regEvents{$key} +1;
 		}
 	}else{
+		debug("service: $servicename is OK");
 		if( exists $regEvents{$key}){
 			push(@eventLst,"serviceFault,$app.$index,$servicename,$checkResult RECOVER");
 			delete $regEvents{$key};
 		}
 		my $cmd = "$path/../../../run/tmp/$servicename".'.srv';
 		`touch $cmd`;
-		debug("service: $servicename is OK");
 	}
 }
 

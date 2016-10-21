@@ -37,6 +37,7 @@ my %regEvents = readHash($regFile);
 my @eventLst = ();
 foreach my $servicename (keys(%main::sqls)){
 	next if ($main::hostItems{$hostID} !~ /$servicename/);
+	next if (defined $ARGV[0] && $servicename !~ /$ARGV[0]/);
         my $hashref = $main::sqls{$servicename};
         my $paraname;
         my $checkResult='';

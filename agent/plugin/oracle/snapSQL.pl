@@ -10,13 +10,14 @@ require "$path/../../lib/command.pl";
 $ENV{'LC_ALL'} = 'C';
 
 dupProcess($file);
-if(hasService('oracle') == 0){
-	print "has no oracle service\n";
-	exit 1;
+my $option = argOption();
+if($option =~ /v/){
+        $main::LOGLEVEL=1;
+        $|=1;
 }
 my $user = loginUser();
 if($user !~ /ora/){
-	print "is not oracle user\n";
+	print "User $user is not oracle user\n";
 	exit 0;
 }
 my %psSQLID = ();

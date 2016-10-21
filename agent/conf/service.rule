@@ -19,7 +19,22 @@ our %service=(
 );
 
 our %serviceAuto = (
-	'ops_trigger' => '$HOME/cerberus/server/bin/ops_trigger.pl'
+	'resin' => {
+		'type'   => 'daemon',
+		'status' => 'com.caucho.server.http.HttpServer',
+		'start'  => '$HOME/resin/bin/httpd.sh start'
+	},
+	'miops'        => {
+		'type'    => 'nodaemon',
+		'status'  => 'dispatch.pl',
+		'start'   => '$HOME/cerberus/agent/bin/dispatch.pl start',
+		'stop'	  => '$HOME/cerberus/agent/bin/dispatch.pl stop'
+	},
+	'mysql' => {
+		'type'	 => 'daemon',
+		'status' => 'mysqld',
+		'start'  => 'mysqld start'
+	}
 );
 
 1;

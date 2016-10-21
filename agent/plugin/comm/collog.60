@@ -8,7 +8,7 @@ my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 
 $ENV{'LC_ALL'} = 'C';
 require "$path/../../lib/funcs.pl";
-my $app = "log";
+my $app = "collog";
 dupProcess($file);
 my $logFile = "$path/../../../run/queue/log/".basename($file).curtime().".dat";
 my $bpFile = "$path/../../../run/tmp/log.BP";

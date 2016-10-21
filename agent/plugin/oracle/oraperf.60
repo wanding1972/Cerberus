@@ -9,17 +9,15 @@ require "$path/../../lib/funcs.pl";
 $ENV{'LC_ALL'} = 'C';
 
 my $app="oraperf";
-if(scalar @ARGV >0 && $ARGV[0] eq '-d'){
+my $option = argOption();
+if($option =~ /v/){
         $main::LOGLEVEL=1;
+        $|=1;
 }
 dupProcess($file);
-if(hasService('oracle') == 0){
-        print "has no oracle service\n";
-        exit 1;
-}
 my $user = loginUser();
 if($user !~ /ora/){
-        print "is not oracle user\n";
+        print "user $user is not oracle user\n";
         exit 0;
 }
 

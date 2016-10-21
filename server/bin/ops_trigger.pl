@@ -240,7 +240,8 @@ sub mailReport($$$$){
         }else{
 		$out = " suceed!";
 	}
-	print "mail: $headers $mailaddrs $out\n"; 
+	my $mytime =curtime();
+	print "mail: $mytime $headers $mailaddrs $out\n"; 
 }
 
 sub weChat($$$$$){
@@ -259,7 +260,7 @@ sub notifyAlarm{
 	my ($site,$ip,$alarmType,$fac,$action) = @_;
 	my %denys = readHash("$path/../conf/mail.deny");
 	if(exists $denys{$alarmType} && $denys{$alarmType} =~ /$site|ALL/ ){
-		print "exit $ip $alarmType $fac\n"; 
+		print "filter $ip $alarmType $fac\n"; 
 		return;
 	}
 	my $key = "$site,$ip,$alarmType,$fac";

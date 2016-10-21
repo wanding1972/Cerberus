@@ -35,6 +35,7 @@ if(open(FILE,$fileName)){
                 my @tokens = split /[ \t,]+/,$line;
                 my $ip = $tokens[0];
                 my $port = defined $tokens[2]? $tokens[2]:22;
+		next if (defined $ARGV[0] && $ip !~ /$ARGV[0]/);
 		my $ret = testSSH($ip,$port,'sshchecker');
 		my $key = "sshFailed,$app.isAlived,$ip";
 		if($ret eq 'failed'){
@@ -80,10 +81,10 @@ sub testSSH{
 	my $sess=new Expect;
 	my $command = "ssh -o 'StrictHostKeyChecking no' -o ConnectTimeout=60  -l $user -p $port $ip ";
 	$sess = Expect->spawn( $command );
+	$sess->log_stdout(0);
 	if(! $sess){
 		print "Couldn't spawn ssh,$!\n";
 	}
-
 	$sess->expect(50,
 				[
 					qr/$regPass/i,
@@ -91,6 +92,7 @@ sub testSSH{
 				 ],  -re => $PROMPT
 	);
 	my $match=$sess->match();
+	$sess->log_stdout(1);
 	if($match =~ /$regPass/) {
 		return "ok";
 	}else{
