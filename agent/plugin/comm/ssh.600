@@ -19,8 +19,9 @@ my $option = argOption();
 if($option =~ /v/){
         $main::LOGLEVEL=1;
         $|=1;
+}else{
+	dupProcess($file);
 }
-dupProcess($file);
 
 my $regFile = "$path/../../../run/tmp/regEvents.ssh";
 my %regEvents = readHash($regFile);

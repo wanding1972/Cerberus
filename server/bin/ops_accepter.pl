@@ -6,17 +6,13 @@ my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 use Socket;
 use POSIX 'setsid';
 
-require "$path/../conf/server.conf";
 require "$path/min_funcs.pl";
-
-
 dupProcess($file);
 
 my $statusFile = "$path/../../data/host.status";
-my $lstFile    = "$path/../../data/host.csv";
+my $lstFile    = "$path/../../data/host.map";
 
 my %hosts = ();              #key=time
-my %proxys = ();
 my %hostStatus = ();
 
 my @eventList = ();
@@ -25,10 +21,9 @@ my @logList = ();
 my @configList = ();
 my $dirData = "$path/../../data";
 if(! -e $dirData){
- `mkdir -p $dirData`;
+	 `mkdir -p $dirData`;
 }
 
-load();
 
 my $sockpid = fork;
 if($sockpid > 0) {      #father process
@@ -59,10 +54,13 @@ open STDERR,"/dev/null";
 
 $SIG{'CHLD'}='IGNORE';
 $SIG{'USR1'}=sub{
+	do "$path/../conf/server.conf";
         load();
         output();
 };
 
+require "$path/../conf/server.conf";
+load();
 my $localhost=sockaddr_in($main::PORT,INADDR_ANY);
 socket(SERVER,AF_INET,SOCK_DGRAM,17);
 bind(SERVER,$localhost);
@@ -165,16 +163,13 @@ sub load(){
                    chomp($line);
                    next if($line =~ /^$/);
                    next if($line =~ /^#/);
-		   my @tokens = split /,/,$line;
-                   my ($ip,$node,$user) = ($tokens[0],$tokens[1],$tokens[2]);
-		   my $port = defined $tokens[5] ? $tokens[5]:22;
+		   my @m_tokens = split /=/,$line;
+		   my @tokens = split /,/,$m_tokens[0];
+                   my ($ip,$node) = ($tokens[1],$tokens[0]);
                    my $key = "$node,$ip";
                    if(! exists $hosts{$key}){
                         $hosts{$key} = time;
                    }
-		   if($line =~ /proxy/i){
-		   	$proxys{$key} = "$node,$ip,$user,$port";
-		   }
                 }
                 close(FILE);
         }
@@ -184,7 +179,6 @@ sub load(){
 sub output(){
         my @keys = keys %hostStatus;
         return if($#keys <0);
-	my %failedHosts = ();
         if(open(TMPFILE,">$statusFile")){
                 foreach my $key (@keys) {
                         my $hellotime = $hosts{$key};
@@ -197,9 +191,6 @@ sub output(){
                         my $status = 'ONLINE';
                         if($elapse > $main::OFFLINE_TIMEOUT) {
                                 $status = 'OFFLINE';
-				if(exists $proxys{$key}){
-					$failedHosts{$key} = 1;
-				}
                         }
                         $now = $now - 3600*24*365*46;
                         $hellotime = $hellotime - 3600*24*365*46;
@@ -209,12 +200,4 @@ sub output(){
         	}
 	        close(TMPFILE);
    	}
-        if(open(SSHFILE,">$path/../../agent/conf/host.lst")){
-                foreach my $key (keys %failedHosts){
-			my ($node,$ip,$user,$port) = split /,/, $proxys{$key};
-                       #print SSHFILE "$strTime,$key,AGENT_CRASH,acceptor.health,-,agent may be crashed\n";
-                       print SSHFILE  "$ip,$user,$port\n";
-                }
-		close(SSHFILE);
-	}
 }

@@ -11,13 +11,18 @@ require "$path/../../lib/service.pl";
 $ENV{'LC_ALL'} = 'C';
 
 my $app = "service";
-dupProcess($file);
 my $option = argOption();
 if($option =~ /v/){
         $main::LOGLEVEL=1;
         $|=1;
+}else{
+	dupProcess($file);
 }
 
+if($ARGV[0] eq 'help'){
+	print "Usage: $file -v -a [servicename]\n";
+	exit 0;
+}
 my $serviceConf = "$path/../../conf/service.rule";
 if( -e $serviceConf){
 	require $serviceConf;
@@ -28,8 +33,11 @@ my $regFile = "$path/../../../run/tmp/regEvents.service";
 my %regEvents = readHash($regFile);
 my @eventLst = ();
 foreach my $servicename (keys(%main::service)){
-	next if( hasService($servicename) == 0);
 	next if (defined $ARGV[0] && $servicename !~ /$ARGV[0]/);
+	if( hasService($servicename) == 0){
+		debug("No $servicename on this host") ;
+		next;
+	}
 	my $hashref = $main::service{$servicename};
 	my $paraname;
 	my $checkResult='';
@@ -52,8 +60,9 @@ foreach my $servicename (keys(%main::service)){
 		push(@eventLst,"serviceFault,$app.$index,$servicename,$checkResult OCCUR");
 		debug("service: $servicename is FAIL, $checkResult");
 		if($option =~ /a/ && exists $main::serviceAuto{$servicename}){
-			my $autoOut = system($main::serviceAuto{$servicename});
-			debug("serviceRestart:  $main::serviceAuto{$servicename}  return : $autoOut");
+			my $autoOut = system("$path/../../tools/supervisor.pl -v stop $servicename >> /tmp/service.txt");
+			   $autoOut .= system("$path/../../tools/supervisor.pl -v start $servicename");
+			   debug("serviceRestart:  $main::serviceAuto{$servicename}{'start'}  return : $autoOut");
 		}
 		if(!exists $regEvents{$key}){
 			$regEvents{$key} = 1;

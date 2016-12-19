@@ -6,24 +6,22 @@ my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 require "$path/command.pl";
 
 sub chkFileTime{
-	my ($file,$value) = @_;
-	$file = decodePath($file);
-	my $dir = dirname($file);
-	my $base = basename($file);
+	my ($mypath,$value) = @_;
+	my @files = decodePath($mypath);
 	my $isError = 0;
 	my $error = "";
-	if( ! -e $file){
-		return "file $file not exists";
+	foreach my $file (@files){
+	 my @status = stat($file);
+	 my $modtime = $status[9];
+	 my $interval = int((time() - $modtime)/60+0.5);
+	 my $spend = 24*3600*365*5;
+	 my $expression = "$interval $value";
+	 if (eval($expression) && ($modtime>(time()-$spend))){
+		   $isError = 1;
+		   $error .= $file.' noUpdate';
+		   last;
+	 }
 	}
-				my @status = stat($file);
-				my $modtime = $status[9];
-				my $interval = int((time() - $modtime)/60+0.5);
-				my $spend = 24*3600*365*5;
-				my $expression = "$interval $value";
-				if (eval($expression) && ($modtime>(time()-$spend))){
-					   $isError = 1;
-					   $error .= $file.' noUpdate , ';
-				}
 	if($isError){
 		my $retval = $error."  for $value minutes";
 		return $retval;
@@ -32,80 +30,73 @@ sub chkFileTime{
 	}
 }
 
-sub chkProcess{
-	my ($process,$value) = @_;
-	my $cmd = getCmd('ps');
-	my @result = `$cmd`;
-	my $line;
-	my $count = 0;
-	foreach $line (@result) {
-		chomp($line);
-		if ($line =~ /\b$process/) {
-			$count++ ;
-		}
-	}
-	my $expression = "$count $value";
-	if (eval($expression)) {
-		return " $process  $expression";
-	}else{
-		return 'ok';
-	}
-}
 
 sub chkFileError{
-	my ($file,$strErr) = @_;
-  	$file = decodePath($file);
-	if (-e $file){
-		if (!open(LOGFILE,$file)){
-			return "fileName: $file failed to open";
-		}else{
+	my ($mypath,$strErr) = @_;
+        my @files = decodePath($mypath);
+        my $isError = 0;
+        my $error = "";
+        foreach my $file (@files){
+		if (open(LOGFILE,$file)){
 			my $size = -s $file;
 			my $l_record;
 			seek(LOGFILE,-5000,2);
 			while($l_record = <LOGFILE> ){
 				if ( $l_record =~ /$strErr/ ){
-					return " $file content has $strErr";
+		                   $isError = 1;
+               			   $error .= " $file content has $strErr";
+				   last;
 				}
 			}
-			return 'ok';
-		}	
-	}else{
-		return "fileName: $file not exist";
-	}
+			close(LOGFILE);
+		}
+	}	
+        if($isError){
+                my $retval = $error;
+                return $retval;
+        }else{
+                return 'ok';
+        }
 }
 
 sub chkFileSize{
-	my ($file,$expr) = @_;
-   	$file = decodePath($file);
-	if (-e $file){
-			my $size = -s $file;
-			my $expression = "$size $expr";
-		    	if (eval($expression)){
-                        	return " $file size: $expression Bytes";
-			}else{
-				return 'ok';
-			}
-	}else{
-		return "fileName: $file not exist";
+	my ($mypath,$expr) = @_;
+   	my @files = decodePath($mypath);
+        my $isError = 0;
+        my $error = "";
+	foreach my $file( @files){
+		my $size = -s $file;
+		my $expression = "$size $expr";
+	    	if (eval($expression)){
+                   $isError = 1;
+                   $error .= " $file size: $expression Bytes";
+		   last;
+		}
 	}
+        if($isError){
+                my $retval = $error;
+                return $retval;
+        }else{
+                return 'ok';
+        }
 }
 
 sub chkDirFile{
-	my ($logDir,$expr) = @_;
-	my $NUM = 20;
-	$logDir = decodePath($logDir);
-	if (!(-d $logDir)) {
-		return "Directory: $logDir is not a directory";
-	}
-	if(!opendir(DIR,$logDir)){
+	my ($mypath,$expr) = @_;
+	my $NUM = 10;
+	my @dirs = decodePath($mypath);
+	my $dirNum = 0;
+	foreach my $logDir (@dirs){
+	  next if (!(-d $logDir)); 
+	  $dirNum ++;
+	  if(!opendir(DIR,$logDir)){
               return "Directory: $logDir failed to open";
-	}
-	my @files = readdir(DIR);
-	if($#files < $NUM){     
-		return "ok";
-	}
-	my ($file,$modtime,$interval,$expression,@status);
-	foreach $file (@files){
+	  }
+	 my @files = readdir(DIR);
+	 closedir(DIR);
+	 my ($file,$modtime,$interval,$expression,@status);
+	 my $count = 0;
+	 foreach $file (@files){
 		if(($file ne '.')&&($file ne '..')){
 			my $filename = $logDir."/".$file;
 			if( -d $filename){
@@ -115,29 +106,56 @@ sub chkDirFile{
 			$modtime = $status[9];
 			$interval = int((time() - $modtime)/60+0.5); 
 			my $spend = 24*3600*365*10;
-			if($modtime<$spend){
+			if($modtime<$spend){     # exclude the very old file
 				next;
 			}
 			$expression = "$interval $expr";
 			if (eval($expression)) {
-				return " $filename is too older: $expression minutes";
+				$count ++;
+				if($count > $NUM){
+					return "In $logDir there are $count files expired $expr minutes";
+				}
 			}
 		}
+	 }
 	}
-	closedir(DIR);
-	return "ok";
+	if($dirNum ==0){
+		return "$mypath is not directory";
+	}else{
+		return "ok";
+	}
+}
+
+sub chkProcess{
+        my ($process,$value) = @_;
+        my $cmd = getCmd('ps');
+        my @result = `$cmd`;
+        my $line;
+        my $count = 0;
+        foreach $line (@result) {
+                chomp($line);
+                if ($line =~ /\b$process/) {
+                        $count++ ;
+                }
+        }
+        my $expression = "$count $value";
+        if (eval($expression)) {
+                return " $process  $expression";
+        }else{
+                return 'ok';
+        }
 }
 
 sub chkProcTimeout{
 	my ($procName,$expr) = @_;
-    my $cmd = getCmd('ps');
+    	my $cmd = getCmd('ps');
 	my @lines= `$cmd`;
 	my @procidlist =();
 	my $line;
 	foreach $line (@lines){
 		chomp($line);
 		$line=~s/^\s*|\s*$//g;
-		if($line =~/\b$procName\b/){
+		if($line =~/\b$procName/){
 			my @token = split / +/,$line;
 			push @procidlist,$token[1];
 		}
@@ -174,6 +192,21 @@ sub chkProcTimeout{
 	
 }
 
+sub chkCmd{
+        my ($cmd,$value) = @_;
+        my $out = `$cmd`;
+        if($out =~ /($value.+)$/){
+                $ret = $1;
+                $cmd =~ s/\||,/_/g;
+                return "result of ($cmd) failed: ($ret)";
+        }else{
+                return 'ok';
+        }
+}
+
+
+
+
 sub chkCron{
 	my ($user,$match) = @_;
 	$user = `whoami`;
@@ -201,16 +234,6 @@ sub chkCron{
 		}
 	}
 	return $flag;
-}
-
-sub chkCmd{
-        my ($file,$value) = @_;
-	my $out = `$file`;
-	if($out =~ /$value/){
-		return 'ok';
-	}else{
-		return "result of $file failed";
-	}
 }
 
 sub chkHTTP{
@@ -272,25 +295,25 @@ sub chkTCP{
 }
 
 sub decodePath{
-	my ($path) = @_;
+	my ($mypath) = @_;
 	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst);
 	my $date;
 	my ($offset,$prsid,$myHome);
 	for(;;){
-		if($path =~ /{YYYYMMDD-(\d)}/){
+		if($mypath =~ /{YYYYMMDD-(\d)}/){
 			$offset = $1;
 			($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time()-24*3600*$offset);
 			$date=sprintf("%d%02d%02d",$year+1900,$mon+1,$mday);
-			$path =~ s/{YYYYMMDD-\d}/$date/g;
-		}elsif($path =~ /{YYYYMM-(\d)}/){
+			$mypath =~ s/{YYYYMMDD-\d}/$date/g;
+		}elsif($mypath =~ /{YYYYMM-(\d)}/){
 			$offset = $1;
 			($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time()-24*3600*$offset);
 			$date=sprintf("%d%02d",$year+1900,$mon+1);
-			$path =~ s/{YYYYMM-\d}/$date/g;
-		}elsif($path =~/(\$[a-zA-Z_1-9]+)/){
-        	$myHome = eval($1);
-			$path =~ s/\$[a-zA-Z_1-9]+/$myHome/;
-		}elsif($path =~ /{WEEK-(\d)}/){
+			$mypath =~ s/{YYYYMM-\d}/$date/g;
+		}elsif($mypath =~/(\$[a-zA-Z_1-9]+)/){
+        		$myHome = eval($1);
+			$mypath =~ s/\$[a-zA-Z_1-9]+/$myHome/;
+		}elsif($mypath =~ /{WEEK-(\d)}/){
 			$offset = $1;
 			($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 			 if($wday<$offset){
@@ -300,16 +323,40 @@ sub decodePath{
 			}
 			($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time()-24*3600*$offset);
 			$date=sprintf("%d%02d%02d",$year+1900,$mon+1,$mday);
-			$path =~ s/{WEEK-\d}/$date/g;	
-		}elsif($path =~ /{YYYYMMDD}/){
+			$mypath =~ s/{WEEK-\d}/$date/g;	
+		}elsif($mypath =~ /{YYYYMMDD}/){
 			($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time());
 			$date=sprintf("%d%02d%02d",$year+1900,$mon+1,$mday);
-			$path =~ s/{YYYYMMDD}/$date/g;	
+			$mypath =~ s/{YYYYMMDD}/$date/g;	
+		}elsif ($mypath =~ /\*/){ 
+			my @filesArr = `ls $mypath`;
+			return @filesArr;
+		}elsif($mypath =~ /\?/){
+			my @fileArr = `ls $mypath`;
+			return @fileArr;
 		}else{
-			return $path;
+			my @filesArr = ();
+			push (@filesArr,$mypath);
+			return @filesArr;
 		}
 	}
 }
 
+sub test{
+print chkDirFile('/wanding/cerberus/bin','>1');
+print "asda\n";
+print chkFileError('service.pl','sub');
+print "\n";
+print chkFileSize('service.pl','>200');
+print "\n";
+print chkFileTime('funcs.pl','>200');
+print "\n";
+	my @arr = decodePath("/wanding/cerberus/bin");
+	foreach my $ab (@arr){
+		print "$ab\n";
+	}
+	print "----\n";
+}
 
+#test();
 1;

@@ -8,11 +8,12 @@ $ENV{'LC_ALL'} = 'C';
 require "$path/../lib/funcs.pl";
 require "$path/../lib/command.pl";
 
-dupProcess($file);
 my $option = argOption();
 if($option =~ /v/){
         $main::LOGLEVEL=1;
         $|=1;
+}else{
+	dupProcess($file);
 }
 
 my $serviceConf = "$path/../conf/service.rule";
@@ -39,6 +40,8 @@ foreach my $servicename (keys(%main::serviceAuto)){
 	if($num ==0 && $method eq 'start'){
 		debug("$num start service: $servicename $cmds{'start'}");
 		system($cmds{'start'});
+	}elsif($num ==0 && $method eq 'status'){
+		debug("no service $servicename running");
 	}
 }
 

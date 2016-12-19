@@ -15,7 +15,10 @@ our %service=(
 	#}
 	'ops_trigger' => {
 		'ps_count' => ['ops_trigger.pl','<1']
-		   }
+		   },
+	'miops' => {
+		'ps_count' => ['dispatch.pl','<1']
+		}
 );
 
 our %serviceAuto = (

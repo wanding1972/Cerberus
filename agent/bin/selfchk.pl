@@ -96,7 +96,7 @@ sub confVersion{
 	if( -e $sqlFile){
 		require $sqlFile;
 	}
-	my $confVer = "v1";
+	my $confVer = "";
 	if(defined $main::sqlVersion){
 		$confVer .= $main::sqlVersion;
 	}

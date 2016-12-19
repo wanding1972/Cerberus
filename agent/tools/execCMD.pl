@@ -7,12 +7,14 @@ my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 
 require "$path/../lib/funcs.pl";
 require "$path/../lib/command.pl";
-dupProcess($file);
 my $option = argOption();
 if($option =~ /v/){
         $main::LOGLEVEL=1;
         $|=1;
+}else{
+	dupProcess($file);
 }
+
 my $cmd = $ARGV[0];
 my $strCmd = getCmd($cmd);
 my @out = `$strCmd`;

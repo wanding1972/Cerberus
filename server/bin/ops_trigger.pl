@@ -7,11 +7,11 @@ use File::Spec;
 my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 require "$path/min_funcs.pl";
-require "$path/../conf/server.conf";
+dupProcess($file);
+
 
 my $home = "$path/../..";
 my $app = "trigger";
-dupProcess($file);
 daemon($app,$home);
 
 my %eventCur = ();
@@ -27,8 +27,10 @@ loadCurEvent();
 my %regEvents = ();
 my $counter = 0;
 while(1){
+	do "$path/../conf/server.conf";
 	do "$path/../conf/mail.rule";
 	my $fileLog = "$path/../../data/event.log";
+	print "$main::urlMail\n";
 	if($counter % 12 == 0){
 		%mapHost = readHash("$path/../../data/host.map");
 		my $statLog = "$path/../../data/stat.log";

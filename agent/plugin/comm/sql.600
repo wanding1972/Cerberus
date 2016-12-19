@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 use strict; 
-use warnings;
 use Env;
 use DBI;
 use File::Spec;
@@ -19,16 +18,21 @@ if( -e "$path/../../conf/sql.rule"){
 	require  "$path/../../conf/sql.rule";
 }
 my $app = "sql";
-dupProcess($file);
 my $option = argOption();
 if($option =~ /v/){
 	$main::LOGLEVEL=1;
+}else{
+	dupProcess($file);
 }
 
+if($ARGV[0] eq 'help'){
+        print "Usage: $file -v [businessname]\n";
+        exit 0;
+}
 
 my $hostID = "$main::SITE-$main::LOOPADDRESS";
 if(!exists $main::hostItems{$hostID}){
-	print "no sqls need execute in this host'n";
+	print "No business check need execute on this host \n";
 	exit 0;
 }
 my ($dbUser,$dbPass,$dbStr) = loadDBConfig();

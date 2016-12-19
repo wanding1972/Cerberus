@@ -14,7 +14,13 @@ require "$path/../lib/funcs.pl";
 require "$path/../lib/command.pl";
 $ENV{'LC_ALL'} = 'C';
 
-dupProcess($file);
+my $option = argOption();
+if($option =~ /v/){
+        $main::LOGLEVEL=1;
+        $|=1;
+}else{
+        dupProcess($file);
+}
 
 my @time1=localtime(time());
 my $ss = $time1[0];
@@ -24,10 +30,12 @@ my @out = mycmds('pscpu');
 if(open(FILE,">$fileName")){
 	foreach my $line (@out){
 		print FILE $line;
+		chomp($line);
+		debug($line);
 	}
 	close(FILE);
 }
 
 my $cmd = "$path/../plugin/oracle/snapSQL.pl";
-print $cmd."\n";
+debug($cmd);
 `$cmd`;

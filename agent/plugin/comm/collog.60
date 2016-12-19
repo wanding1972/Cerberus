@@ -20,7 +20,7 @@ foreach my $file (keys %rules){
 	my $last_point = defined $bps{$file}?$bps{$file}:0;
         my $realPath = "$file";
         if($file !~ /^\//){
-                $realPath = "$HOME/$file";
+                $realPath = "$ENV{'HOME'}/$file";
         }else{
                 $realPath = "$file";
         }

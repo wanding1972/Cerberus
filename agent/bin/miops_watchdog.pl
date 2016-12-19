@@ -46,8 +46,8 @@ if($isUdpForward == 0 && defined $main::ROLE && $main::ROLE eq 'PROXY'){
 }
 if($isTcpForward == 0 && defined $main::ROLE && $main::ROLE eq 'PROXY'){
 	$cmd = "$path/TCPForward start";
-	info($cmd);
-	system($cmd);
+#	info($cmd);
+#	system($cmd);
 }
 
 sub chkDispatch{

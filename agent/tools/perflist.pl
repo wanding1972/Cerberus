@@ -6,12 +6,13 @@ my $path_curf = File::Spec->rel2abs(__FILE__);
 my ($vol, $path, $file) = File::Spec->splitpath($path_curf);
 
 require "$path/../lib/funcs.pl";
-dupProcess($file);
 
 my $option = argOption();
 if($option =~ /v/){
         $main::LOGLEVEL=1;
         $|=1;
+}else{
+	dupProcess($file);
 }
 my $datapath = "$path/../../run/data/perf/";
 my @nameArr = ('cpu','swap','net','conps');
